@@ -1,0 +1,12 @@
+/* Login and password-recovery page-specific styles. */
+
+.auth-card-login .auth-heading p {
+  margin-bottom: 24px;
+}
+
+.forgot-row {
+  display: flex;
+  justify-content: flex-end;
+  margin: -3px 0 1px;
+  font-size: 10px;
+}

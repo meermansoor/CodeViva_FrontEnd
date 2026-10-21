@@ -1,0 +1,24 @@
+.viva-submitted-card { width: min(100%, 510px); padding: 32px 36px 31px; text-align: center; border: 1px solid #e1e7ef; border-radius: 15px; background: #fff; box-shadow: 0 8px 24px rgba(27,43,71,.06); }
+.submitted-icon { width: 62px; height: 62px; display: grid; place-items: center; margin: 0 auto 27px; border: 10px solid #e3f8f1; border-radius: 50%; color: #fff; background: #10b981; }
+.viva-submitted-card h1 { margin: 0 0 8px; color: #172033; font-size: 25px; line-height: 1.2; }
+.viva-submitted-card > p { max-width: 445px; margin: 0 auto 25px; color: #64738a; font-size: 13px; line-height: 1.35; }
+.viva-submitted-card dl { margin: 0; padding: 16px; text-align: left; border: 1px solid #e1e7ef; border-radius: 12px; background: #f8fafc; }
+.viva-submitted-card dl div { display: flex; justify-content: space-between; gap: 14px; margin-top: 10px; }
+.viva-submitted-card dl div:first-child { margin-top: 0; }
+.viva-submitted-card dt { color: #718096; font-size: 12px; }
+.viva-submitted-card dd { margin: 0; color: #172033; font-size: 12px; font-weight: 700; text-align: right; }
+.submitted-note { margin: 26px 0; padding: 13px; border-radius: 8px; color: #52617a; background: #eeedff; font-size: 12px; line-height: 1.35; }
+.submitted-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.submitted-actions button { height: 40px; border-radius: 7px; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.transcript-button { border: 1px solid #91a4c0; color: #52617a; background: #fff; }
+.exit-portal-button { border: 0; color: #fff; background: #5045e8; }
+@media (max-width: 600px) {
+	.viva-submitted-card { padding: 30px 20px 25px; }
+	.submitted-icon { margin-bottom: 25px; }
+	.viva-submitted-card h1 { font-size: 23px; }
+	.viva-submitted-card > p { font-size: 13px; }
+	.viva-submitted-card dl { padding: 15px; }
+	.viva-submitted-card dl div { align-items: flex-start; }
+	.viva-submitted-card dt, .viva-submitted-card dd { font-size: 12px; }
+	.viva-submitted-card dd { max-width: 58%; }
+}

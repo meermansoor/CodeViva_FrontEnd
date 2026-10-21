@@ -1,0 +1,19 @@
+.instructions-card { width: min(100%, 430px); margin: 0 auto; padding: 27px 26px 25px; border: 1px solid #e1e7ef; border-radius: 10px; background: #fff; box-shadow: 0 8px 24px rgba(27, 43, 71, .06); }
+.instructions-heading { text-align: center; }
+.instructions-heading h1 { margin: 0 0 7px; color: #121a2c; font-size: 16px; font-weight: 800; }
+.instructions-heading p { margin: 0; color: #52617a; font-size: 8px; line-height: 1.45; }
+.instruction-summary { display: grid; grid-template-columns: 1.25fr 1fr 1fr; gap: 9px; margin-top: 20px; }
+.instruction-summary div { min-height: 49px; padding: 10px; border-radius: 7px; background: #f8fafc; }
+.instruction-summary span, .instruction-summary strong { display: block; }
+.instruction-summary span { color: #8a9bb1; font-size: 7px; font-weight: 700; }
+.instruction-summary strong { margin-top: 5px; color: #172033; font-size: 9px; line-height: 1.25; }
+.proctoring-guidelines { margin-top: 21px; padding: 14px; border-radius: 7px; color: #52617a; background: #eeedff; font-size: 8px; line-height: 1.45; }
+.proctoring-guidelines > strong { color: #5045e8; font-size: 9px; }
+.proctoring-guidelines ul { margin: 8px 0 0; padding-left: 12px; }
+.proctoring-guidelines li { margin-top: 6px; padding-left: 2px; }
+.proctoring-guidelines li::marker { color: #5045e8; }
+.instructions-action { width: 100%; height: 28px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; margin-top: 20px; border: 0; border-radius: 5px; color: #fff; background: #5045e8; font-size: 8px; font-weight: 650; cursor: pointer; }
+.instructions-action:hover { background: #4539d4; }
+.instructions-note { display: flex; align-items: center; gap: 4px; margin: 11px 0 0; color: #9aabc0; font-size: 7px; }
+.instructions-note svg { color: #10b981; flex: 0 0 auto; }
+@media (max-width: 600px) { .instructions-card { padding: 24px 18px; } .instruction-summary { grid-template-columns: 1fr; } }

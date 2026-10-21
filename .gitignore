@@ -1,0 +1,45 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Node modules & dependencies
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Environment variable files
+.env
+.env.production
+.env.development
+.env.local
+.env.*.local
+!.env.example
+
+# Cache directories
+.eslintcache
+.stylelintcache
+.cache/
+.parcel-cache/
+.vite/
+
+# Coverage / Testing
+coverage/
+*.lcov
+.nyc_output/

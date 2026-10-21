@@ -1,0 +1,19 @@
+.skipped-questions-card { width: min(100%, 412px); margin: 0 auto; padding: 26px 24px 24px; border: 1px solid #e1e7ef; border-radius: 10px; background: #fff; box-shadow: 0 8px 24px rgba(27, 43, 71, .06); }
+.skipped-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 15px; }
+.skipped-heading h1 { margin: 0 0 7px; color: #172033; font-size: 18px; }
+.skipped-heading p { max-width: 290px; margin: 0; color: #64738a; font-size: 8px; line-height: 1.45; }
+.skipped-heading > span { padding: 4px 7px; border-radius: 8px; color: #f59e0b; background: #fff4df; font-size: 7px; font-weight: 700; white-space: nowrap; }
+.skipped-list { display: grid; gap: 9px; margin-top: 21px; }
+.skipped-question { min-height: 50px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 12px; border: 1px solid #e1e7ef; border-radius: 7px; background: #f8fafc; }
+.skipped-question > div { min-width: 0; }
+.skipped-question span, .skipped-question strong { display: block; }
+.skipped-question span { color: #5045e8; font-size: 7px; font-weight: 700; }
+.skipped-question strong { margin-top: 5px; overflow: hidden; color: #172033; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.skipped-question button { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; height: 24px; padding: 0 9px; border: 0; border-radius: 4px; color: #5045e8; background: #eeedff; font-size: 7px; font-weight: 650; cursor: pointer; }
+.skipped-question button:hover { background: #e4e1ff; }
+.skipped-actions { display: flex; justify-content: space-between; gap: 10px; margin-top: 25px; }
+.skipped-actions button { min-width: 100px; height: 28px; padding: 0 12px; border-radius: 5px; font-size: 8px; cursor: pointer; }
+.skip-all-button { border: 1px solid #b6c2d2; color: #52617a; background: #fff; }
+.answer-selected-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 122px !important; border: 0; color: #fff; background: #5045e8; font-weight: 650; }
+.answer-selected-button:hover { background: #4539d4; }
+@media (max-width: 500px) { .skipped-heading { flex-direction: column; } .skipped-question strong { max-width: 155px; } .skipped-actions { flex-direction: column; } .skipped-actions button { width: 100%; } }

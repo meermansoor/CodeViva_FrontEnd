@@ -1,0 +1,901 @@
+/* =========================================================
+   CODEVIVA - LIVE MONITORING
+========================================================= */
+
+.live-monitoring-page {
+  min-height: 100vh;
+
+  background: #f7f9fc;
+
+  color: #172033;
+
+  font-family:
+    Inter,
+    Arial,
+    sans-serif;
+}
+
+
+/* =========================================================
+   TOP NAVBAR
+========================================================= */
+
+.live-topbar {
+  height: 54px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 0 24px;
+
+  box-sizing: border-box;
+
+  border-bottom: 1px solid #e4e9ef;
+
+  background: #ffffff;
+}
+
+
+/* =========================================================
+   TITLE
+========================================================= */
+
+.live-title-wrapper {
+  display: flex;
+
+  align-items: center;
+
+  gap: 10px;
+}
+
+.live-title-wrapper h1 {
+  margin: 0;
+
+  color: #172033;
+
+  font-size: 16px;
+
+  font-weight: 750;
+}
+
+.live-badge {
+  display: inline-flex;
+
+  align-items: center;
+  justify-content: center;
+
+  min-height: 19px;
+
+  padding: 0 7px;
+
+  border-radius: 4px;
+
+  color: #ef4444;
+
+  background: #fff0f0;
+
+  font-size: 7px;
+
+  font-weight: 800;
+}
+
+
+/* =========================================================
+   TOP ACTIONS
+========================================================= */
+
+.live-top-actions {
+  display: flex;
+
+  align-items: center;
+
+  gap: 10px;
+}
+
+.live-icon-button {
+  width: 31px;
+
+  height: 31px;
+
+  display: grid;
+
+  place-items: center;
+
+  border: 0;
+
+  border-radius: 50%;
+
+  color: #172033;
+
+  background: #f8fafc;
+
+  cursor: pointer;
+}
+
+.live-icon-button:hover {
+  background: #f1f4f8;
+}
+
+.live-avatar {
+  width: 32px;
+
+  height: 32px;
+
+  display: grid;
+
+  place-items: center;
+
+  border-radius: 50%;
+
+  color: #ffffff;
+
+  background: #4f46e5;
+
+  font-size: 9px;
+
+  font-weight: 700;
+
+  border: 2px solid #ffffff;
+}
+
+
+/* =========================================================
+   MAIN CONTENT
+========================================================= */
+
+.live-content {
+  padding: 30px 24px 50px;
+
+  box-sizing: border-box;
+}
+
+
+/* =========================================================
+   SESSION HEADER
+========================================================= */
+
+.live-session-header {
+  display: flex;
+
+  align-items: center;
+
+  justify-content: space-between;
+
+  gap: 20px;
+
+  flex-wrap: wrap;
+
+  row-gap: 12px;
+
+  margin-bottom: 18px;
+}
+
+
+/* =========================================================
+   HEADER LEFT
+========================================================= */
+
+.live-header-left {
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: flex-start;
+
+  gap: 10px;
+
+  flex: 1 1 auto;
+}
+
+
+/* =========================================================
+   BACK BUTTON
+========================================================= */
+
+.live-back-button {
+  height: 28px;
+
+  display: inline-flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  gap: 5px;
+
+  padding: 0 10px;
+
+  margin-top: 0;
+
+  margin-right: 0;
+
+  border: 1px solid #dfe5ed;
+
+  border-radius: 6px;
+
+  color: #53637a;
+
+  background: #ffffff;
+
+  font-size: 9px;
+
+  font-weight: 650;
+
+  cursor: pointer;
+
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.live-back-button:hover {
+  color: #5045e8;
+
+  background: #f7f6ff;
+
+  border-color: #cfcaff;
+}
+
+.live-back-button svg {
+  flex: 0 0 auto;
+}
+
+
+/* =========================================================
+   SESSION TITLE
+========================================================= */
+
+.live-session-header h2 {
+  margin: 0 0 5px;
+
+  color: #172033;
+
+  font-size: 16px;
+
+  font-weight: 750;
+}
+
+.live-session-header p {
+  margin: 0;
+
+  color: #64738a;
+
+  font-size: 9px;
+}
+
+
+/* =========================================================
+   SESSION CONTROLS
+========================================================= */
+
+.session-controls {
+  display: flex;
+
+  align-items: center;
+
+  gap: 9px;
+}
+
+
+/* =========================================================
+   TIMER
+========================================================= */
+
+.elapsed-timer {
+  height: 28px;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 5px;
+
+  padding: 0 11px;
+
+  border: 1px solid #dfe5ed;
+
+  border-radius: 6px;
+
+  color: #26344a;
+
+  background: #ffffff;
+
+  font-size: 9px;
+}
+
+.elapsed-timer svg {
+  color: #172033;
+}
+
+.elapsed-timer strong {
+  font-size: 10px;
+}
+
+.elapsed-timer span {
+  color: #68788e;
+}
+
+
+/* =========================================================
+   END SESSION
+========================================================= */
+
+.end-session-button {
+  height: 28px;
+
+  display: inline-flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  gap: 6px;
+
+  padding: 0 12px;
+
+  border: 0;
+
+  border-radius: 6px;
+
+  color: #ffffff;
+
+  background: #ef4444;
+
+  font-size: 9px;
+
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+.end-session-button:hover {
+  background: #dc2626;
+}
+
+.end-session-button:disabled {
+  opacity: 0.7;
+
+  cursor: not-allowed;
+}
+
+
+/* =========================================================
+   SESSION ENDED
+========================================================= */
+
+.session-ended-banner {
+  display: flex;
+
+  align-items: center;
+
+  gap: 10px;
+
+  margin-bottom: 15px;
+
+  padding: 11px 14px;
+
+  border: 1px solid #b7ead8;
+
+  border-radius: 7px;
+
+  color: #047857;
+
+  background: #ecfdf5;
+}
+
+.session-ended-banner svg {
+  flex: 0 0 auto;
+}
+
+.session-ended-banner div {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 2px;
+}
+
+.session-ended-banner strong {
+  font-size: 10px;
+}
+
+.session-ended-banner span {
+  font-size: 8px;
+}
+
+
+/* =========================================================
+   STUDENT GRID
+========================================================= */
+
+.monitoring-grid {
+  display: grid;
+
+  grid-template-columns: repeat(3, 1fr);
+
+  gap: 13px;
+
+  width: 100%;
+}
+
+
+/* =========================================================
+   STUDENT CARD
+========================================================= */
+
+.student-monitor-card {
+  min-height: 132px;
+
+  padding: 14px;
+
+  box-sizing: border-box;
+
+  border: 1px solid #e0e6ee;
+
+  border-radius: 8px;
+
+  background: #ffffff;
+
+  box-shadow:
+    0 2px 7px rgba(27, 39, 58, 0.04);
+}
+
+
+/* =========================================================
+   STUDENT HEADER
+========================================================= */
+
+.student-card-header {
+  display: flex;
+
+  align-items: center;
+
+  justify-content: space-between;
+
+  gap: 8px;
+}
+
+.student-information {
+  display: flex;
+
+  align-items: center;
+
+  gap: 8px;
+
+  min-width: 0;
+}
+
+.student-avatar {
+  width: 31px;
+
+  height: 31px;
+
+  display: grid;
+
+  place-items: center;
+
+  flex: 0 0 auto;
+
+  border-radius: 50%;
+
+  color: #ffffff;
+
+  background: #66758b;
+
+  font-size: 8px;
+
+  font-weight: 700;
+}
+
+.student-information h3 {
+  margin: 0 0 2px;
+
+  color: #172033;
+
+  font-size: 10px;
+
+  font-weight: 750;
+}
+
+.student-information span {
+  color: #8190a4;
+
+  font-size: 7px;
+}
+
+
+/* =========================================================
+   STATUS
+========================================================= */
+
+.student-status {
+  display: inline-flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  min-height: 18px;
+
+  padding: 0 7px;
+
+  border-radius: 4px;
+
+  font-size: 7px;
+
+  font-weight: 700;
+
+  white-space: nowrap;
+}
+
+.status-progress {
+  color: #5045e8;
+
+  background: #f0efff;
+}
+
+.status-completed {
+  color: #059669;
+
+  background: #e6f8f2;
+}
+
+.status-waiting {
+  color: #526179;
+
+  background: #f4f6f8;
+}
+
+
+/* =========================================================
+   QUESTION + TIME
+========================================================= */
+
+.student-progress-row {
+  display: flex;
+
+  align-items: center;
+
+  justify-content: space-between;
+
+  margin-top: 10px;
+
+  color: #53637a;
+
+  font-size: 8px;
+}
+
+.student-progress-row div {
+  display: flex;
+
+  align-items: center;
+
+  gap: 4px;
+}
+
+.student-progress-row svg {
+  color: #526179;
+}
+
+
+/* =========================================================
+   DIVIDER
+========================================================= */
+
+.student-divider {
+  height: 1px;
+
+  margin: 10px 0;
+
+  background: #e9edf2;
+}
+
+
+/* =========================================================
+   RISK
+========================================================= */
+
+.risk-section {
+  width: 100%;
+}
+
+.risk-header {
+  display: flex;
+
+  align-items: center;
+
+  justify-content: space-between;
+
+  margin-bottom: 5px;
+}
+
+.risk-header span {
+  color: #94a2b4;
+
+  font-size: 7px;
+}
+
+.risk-header strong {
+  font-size: 8px;
+}
+
+.risk-low {
+  color: #059669;
+}
+
+.risk-medium {
+  color: #f59e0b;
+}
+
+.risk-high {
+  color: #ef4444;
+}
+
+.risk-bar {
+  width: 100%;
+
+  height: 6px;
+
+  overflow: hidden;
+
+  border-radius: 4px;
+
+  background: #f0f3f6;
+}
+
+.risk-fill {
+  height: 100%;
+
+  border-radius: 4px;
+
+  transition: width 0.3s ease;
+}
+
+.risk-fill.risk-low {
+  background: #10b981;
+}
+
+.risk-fill.risk-medium {
+  background: #f59e0b;
+}
+
+.risk-fill.risk-high {
+  background: #ef4444;
+}
+
+
+/* =========================================================
+   CLASS SUMMARY
+========================================================= */
+
+.class-summary {
+  min-height: 56px;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 18px;
+
+  margin-top: 18px;
+
+  padding: 0 14px;
+
+  box-sizing: border-box;
+
+  border: 1px solid #e0e6ee;
+
+  border-radius: 8px;
+
+  background: #ffffff;
+}
+
+.summary-title {
+  color: #172033;
+
+  font-size: 9px;
+
+  white-space: nowrap;
+}
+
+.summary-stat {
+  display: flex;
+
+  align-items: center;
+
+  gap: 5px;
+
+  color: #53637a;
+
+  font-size: 8px;
+}
+
+.summary-stat strong {
+  color: #172033;
+
+  font-size: 9px;
+}
+
+.summary-dot {
+  width: 6px;
+
+  height: 6px;
+
+  border-radius: 50%;
+
+  background: #64748b;
+}
+
+.active-stat .summary-dot {
+  background: #5045e8;
+}
+
+.completed-stat .summary-dot {
+  background: #10b981;
+}
+
+.waiting-stat .summary-dot {
+  background: #64748b;
+}
+
+.flagged-stat .summary-dot {
+  background: #ef4444;
+}
+
+
+/* =========================================================
+   AUDIT BUTTON
+========================================================= */
+
+.audit-button {
+  height: 28px;
+
+  display: inline-flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  gap: 6px;
+
+  margin-left: auto;
+
+  padding: 0 12px;
+
+  border: 1px solid #5146e5;
+
+  border-radius: 6px;
+
+  color: #5045e8;
+
+  background: #ffffff;
+
+  font-size: 8px;
+
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+.audit-button:hover {
+  background: #f5f3ff;
+}
+
+
+/* =========================================================
+   RESPONSIVE - TABLET
+========================================================= */
+
+@media (max-width: 1000px) {
+
+  .monitoring-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .class-summary {
+    flex-wrap: wrap;
+
+    padding: 12px;
+  }
+
+  .audit-button {
+    margin-left: auto;
+  }
+}
+
+
+/* =========================================================
+   RESPONSIVE - MOBILE
+========================================================= */
+
+@media (max-width: 700px) {
+
+  .live-topbar {
+    padding: 0 15px;
+  }
+
+  .live-title-wrapper h1 {
+    font-size: 13px;
+  }
+
+  .live-content {
+    padding: 20px 15px 40px;
+  }
+
+  .live-session-header {
+    align-items: flex-start;
+
+    flex-direction: column;
+  }
+
+  .live-header-left {
+    width: 100%;
+  }
+
+  .session-controls {
+    width: 100%;
+  }
+
+  .elapsed-timer {
+    flex: 1;
+  }
+
+  .monitoring-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .class-summary {
+    align-items: flex-start;
+
+    flex-direction: column;
+
+    gap: 10px;
+
+    padding: 12px;
+  }
+
+  .audit-button {
+    width: 100%;
+
+    margin-left: 0;
+  }
+}
+
+
+/* =========================================================
+   RESPONSIVE - SMALL MOBILE
+========================================================= */
+
+@media (max-width: 450px) {
+
+  .live-title-wrapper h1 {
+    max-width: 210px;
+  }
+
+  .live-badge {
+    display: none;
+  }
+
+  .live-header-left {
+    align-items: flex-start;
+  }
+
+  .live-back-button {
+    flex: 0 0 auto;
+  }
+
+  .session-controls {
+    flex-direction: column;
+
+    align-items: stretch;
+  }
+
+  .elapsed-timer,
+  .end-session-button {
+    width: 100%;
+
+    box-sizing: border-box;
+  }
+}

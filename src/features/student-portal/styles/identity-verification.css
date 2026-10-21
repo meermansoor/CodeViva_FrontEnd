@@ -1,0 +1,23 @@
+.identity-card { width: min(100%, 354px); margin: 0 auto; padding: 27px 24px 25px; border: 1px solid #e1e7ef; border-radius: 10px; background: #fff; box-shadow: 0 8px 24px rgba(27,43,71,.06); }
+.identity-heading { text-align: center; }
+.identity-heading h1 { margin: 0 0 7px; color: #121a2c; font-size: 15px; font-weight: 800; }
+.identity-heading p { margin: 0 0 20px; color: #52617a; font-size: 8px; }
+.identity-camera { position: relative; height: 178px; overflow: hidden; border-radius: 7px; background: #101419; }
+.identity-camera video, .identity-camera img { width: 100%; height: 100%; display: block; object-fit: cover; transform: scaleX(-1); }
+.camera-live { position: absolute; z-index: 2; top: 8px; left: 9px; color: #fff; font-size: 7px; font-weight: 700; }
+.camera-live i { display: inline-block; width: 5px; height: 5px; margin-right: 4px; border-radius: 50%; background: #ef4444; }
+.face-guide { position: absolute; z-index: 1; top: 29px; left: 50%; width: 100px; height: 120px; transform: translateX(-50%); border: 1px solid rgba(71,229,173,.75); }
+.face-guide span { position: absolute; width: 17px; height: 17px; border-color: #58e0aa; border-style: solid; }
+.face-guide span:nth-child(1) { top: -1px; left: -1px; border-width: 2px 0 0 2px; }
+.face-guide span:nth-child(2) { top: -1px; right: -1px; border-width: 2px 2px 0 0; }
+.face-guide span:nth-child(3) { bottom: -1px; left: -1px; border-width: 0 0 2px 2px; }
+.face-guide span:nth-child(4) { right: -1px; bottom: -1px; border-width: 0 2px 2px 0; }
+.identity-error { margin: 8px 0 -7px; color: #dc2626; font-size: 8px; text-align: center; }
+.identity-progress-row { display: flex; align-items: center; gap: 10px; margin-top: 20px; }
+.identity-progress { height: 5px; flex: 1; overflow: hidden; border-radius: 9px; background: #e2e7ef; }
+.identity-progress span { display: block; width: 75%; height: 100%; background: #5045e8; }
+.identity-progress-row strong { color: #5045e8; font-size: 8px; }
+.identity-capture-button { width: 100%; height: 27px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; margin-top: 19px; border: 0; border-radius: 5px; color: #fff; background: #5045e8; font-size: 8px; font-weight: 650; cursor: pointer; }
+.identity-capture-button:hover { background: #4539d4; }
+.identity-note { display: flex; align-items: center; gap: 4px; margin: 11px 0 0; color: #9aabc0; font-size: 7px; }
+.identity-note svg { color: #10b981; }

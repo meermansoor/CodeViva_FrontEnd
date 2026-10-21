@@ -1,0 +1,55 @@
+.live-viva { min-height: 100vh; color: #172033; background: #f7f9fc; font-family: Inter, system-ui, sans-serif; }
+.live-viva-header { height: 60px; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; border-bottom: 1px solid #e2e7ee; background: #fff; font-size: 13px; }
+.live-viva-header-center { display: flex; align-items: center; gap: 34px; color: #52617a; font-size: 8px; }
+.live-viva-header-center span:first-child { display: flex; align-items: center; gap: 5px; color: #ef4444; font-weight: 750; }
+.live-viva-header-center small { color: #9aabc0; font-size: 8px; font-weight: 400; }
+.live-viva-header-center b { margin-left: 3px; padding: 5px 8px; border-radius: 10px; color: #5045e8; background: #eeedff; font-size: 8px; }
+.live-viva-student { display: flex; align-items: center; gap: 8px; font-size: 8px; }
+.live-viva-student > div:last-child { display: flex; flex-direction: column; align-items: flex-end; }
+.live-viva-student span { margin-top: 2px; color: #8a9bb1; font-size: 7px; }
+.live-viva-avatar { width: 25px; height: 25px; display: grid; place-items: center; border-radius: 50%; color: #fff; background: #34445b; font-size: 7px; font-weight: 700; }
+.live-viva-layout { display: grid; grid-template-columns: minmax(0, 1fr) 228px; gap: 16px; padding: 26px 20px; }
+.live-viva-main { min-width: 0; }
+.question-card { min-height: 122px; padding: 25px 24px; border: 1px solid #e1e7ef; border-radius: 9px; background: #fff; box-shadow: 0 5px 15px rgba(27,43,71,.04); }
+.question-card > span { color: #5045e8; font-size: 8px; font-weight: 700; }
+.question-card h1 { max-width: 650px; margin: 17px 0 0; color: #172033; font-size: 17px; line-height: 1.35; }
+.live-viva-actions { display: grid; grid-template-columns: minmax(180px, 1fr) auto auto auto; gap: 10px; margin-top: 15px; }
+.live-viva-actions button { height: 34px; padding: 0 14px; border-radius: 6px; font-size: 9px; cursor: pointer; }
+.record-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: 0; color: #fff; background: #10b981; font-weight: 700; }
+.record-button.recording { background: #ef4444; }
+.skip-button { border: 1px solid #f3b23c; color: #d98a00; background: #fffaf0; }
+.next-question-button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; border: 0; color: #fff; background: #5045e8; font-weight: 700; }
+.next-question-button:disabled { color: #9aa7b9; background: #e7ebf1; cursor: not-allowed; }
+.next-question-button:not(:disabled):hover { background: #4539d4; }
+.exit-button { border: 1px solid #ef7777; color: #dc2626; background: #fff; }
+.session-ended { color: #0aab72; font-size: 10px; }
+.live-viva-sidebar { display: grid; align-content: start; gap: 12px; }
+.webcam-card, .audio-card, .question-grid-card { padding: 10px; border: 1px solid #e1e7ef; border-radius: 8px; background: #fff; }
+.webcam-card h2, .audio-card h2, .question-grid-card h2 { margin: 0 0 9px; color: #172033; font-size: 8px; }
+.live-webcam { position: relative; height: 102px; overflow: hidden; border-radius: 6px; background: #27313a; }
+.live-webcam video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+.live-webcam span { position: absolute; top: 7px; left: 7px; color: #fff; font-size: 6px; font-weight: 700; }
+.live-webcam i { display: inline-block; width: 5px; height: 5px; margin-right: 3px; border-radius: 50%; background: #10b981; }
+.audio-card h2 { display: flex; justify-content: space-between; }
+.audio-card h2 b { color: #10b981; font-size: 7px; }
+.waveform { height: 25px; display: flex; align-items: center; justify-content: center; gap: 2px; }
+.waveform i { width: 2px; border-radius: 4px; background: #5045e8; }
+.question-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+.question-grid button { width: 23px; height: 23px; border: 1px solid #e1e7ef; border-radius: 50%; color: #52617a; background: #f8fafc; font-size: 8px; cursor: pointer; }
+.question-grid button.answered { color: #0aab72; border-color: #c9f0e3; background: #e8faf4; }
+.question-grid button.current { color: #fff; border-color: #5045e8; background: #5045e8; }
+.skipped-review-overlay { position: fixed; z-index: 10; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(35, 43, 58, .38); }
+.tab-warning-backdrop { position: fixed; z-index: 20; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(35, 43, 58, .43); }
+.tab-warning-modal { width: min(100%, 330px); padding: 26px 25px 25px; text-align: center; border-radius: 11px; background: #fff; box-shadow: 0 18px 45px rgba(20, 29, 45, .18); }
+.tab-warning-icon { width: 42px; height: 42px; display: grid; place-items: center; margin: 0 auto 16px; border-radius: 50%; color: #f59e0b; background: #fff3dc; }
+.tab-warning-modal h2 { margin: 0 0 10px; color: #172033; font-size: 18px; }
+.tab-warning-modal > p { margin: 0 auto 20px; max-width: 265px; color: #52617a; font-size: 9px; line-height: 1.55; }
+.warning-counter { padding: 12px; text-align: left; border: 1px solid #e4e9ef; border-radius: 7px; background: #f8fafc; }
+.warning-counter > div:first-child { display: flex; justify-content: space-between; color: #172033; font-size: 9px; }
+.warning-counter > div:first-child b { color: #ef4444; }
+.warning-counter-track { height: 5px; overflow: hidden; margin-top: 10px; border-radius: 10px; background: #e2e7ef; }
+.warning-counter-track span { display: block; height: 100%; background: #ef4444; }
+.warning-counter small { display: block; margin-top: 9px; text-align: center; color: #7b8aa0; font-size: 7px; line-height: 1.4; }
+.return-viva-button { width: 100%; height: 32px; margin-top: 20px; border: 0; border-radius: 5px; color: #fff; background: #5045e8; font-size: 9px; font-weight: 700; cursor: pointer; }
+.return-viva-button:hover { background: #4539d4; }
+@media (max-width: 760px) { .live-viva-header { height: auto; gap: 10px; padding: 12px 16px; } .live-viva-header-center { display: none; } .live-viva-layout { grid-template-columns: 1fr; padding: 18px 16px; } .live-viva-actions { grid-template-columns: 1fr; } }

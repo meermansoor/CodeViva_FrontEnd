@@ -1,0 +1,54 @@
+/* Register-specific styling lives in Auth.css.
+   Keep this file for future registration-only states and validation styles. */
+
+.auth-card form {
+  margin-top: 0;
+}
+
+.role-selector {
+  margin: 0 0 18px;
+  padding: 0;
+  border: 0;
+}
+
+.role-selector legend {
+  margin-bottom: 7px;
+  color: #172033;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.role-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+}
+
+.role-option {
+  height: 39px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid #dfe5ed;
+  border-radius: 6px;
+  color: #52617a;
+  background: #fff;
+  font-size: 10.5px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: border-color 0.18s ease, color 0.18s ease, background 0.18s ease;
+}
+
+.role-option:hover {
+  border-color: #bdb7ff;
+  color: #5045e8;
+  background: #faf9ff;
+}
+
+.role-option.selected {
+  border-color: #5748e8;
+  color: #5045e8;
+  background: #f3f2ff;
+  box-shadow: 0 0 0 2px rgba(87, 72, 232, 0.08);
+}
