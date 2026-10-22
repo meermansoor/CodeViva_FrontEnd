@@ -1,8 +1,10 @@
 import SkippedQuestions from "./skipped-review/SkippedQuestions";
 import VivaCompleted from "./completion/VivaCompleted";
 import VivaSubmitted from "./submission/VivaSubmitted";
-import { useEffect, useRef, useState } from "react";
-import { AlertTriangle, ArrowRight, Clock3, Mic } from "lucide-react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { AlertTriangle, ArrowRight, Clock3, Mic, ShieldAlert, Eye, Smartphone } from "lucide-react";
+import { useFaceProctoring } from "./hooks/useFaceProctoring";
+import { useObjectProctoring } from "./hooks/useObjectProctoring";
 import io from "socket.io-client";
 import axios from "axios";
 import {
@@ -44,6 +46,62 @@ export default function LiveViva({ sessionId, name, rollNo }) {
   const [skippedQuestionNumbers, setSkippedQuestionNumbers] = useState([]);
   const [warningCount, setWarningCount] = useState(0);
   const [showTabWarning, setShowTabWarning] = useState(false);
+  const [proctorNotice, setProctorNotice] = useState(null);
+
+  const handleProctorViolation = useCallback((violation) => {
+    if (ended || completed) return;
+
+    if (socketRef.current && sessionId) {
+      socketRef.current.emit("proctor:violation", {
+        sessionId,
+        type: violation.type,
+        label: violation.label,
+        durationMs: violation.durationMs,
+        timestamp: violation.timestamp
+      });
+    }
+
+    setWarningCount((curr) => Math.min(3, curr + 1));
+    setProctorNotice(violation.label);
+    setTimeout(() => {
+      setProctorNotice(null);
+    }, 4500);
+  }, [ended, completed, sessionId]);
+
+  const { proctorStatus, proctorLabel, faceCount, gazeState } = useFaceProctoring(videoRef, {
+    onViolation: handleProctorViolation,
+    lookAwayThresholdMs: 2500,
+    absenceThresholdMs: 3000,
+    multipleFacesThresholdMs: 1200,
+    gazeThresholdMs: 2200,
+  });
+
+  const handleObjectViolation = useCallback((violation) => {
+    if (ended || completed) return;
+
+    if (socketRef.current && sessionId) {
+      socketRef.current.emit("proctor:violation", {
+        sessionId,
+        type: "OBJECT_DETECTED",
+        label: violation.label,
+        objectName: violation.objectName,
+        confidence: violation.confidence,
+        timestamp: violation.timestamp
+      });
+    }
+
+    setWarningCount((curr) => Math.min(3, curr + 1));
+    setProctorNotice(violation.label);
+    setTimeout(() => {
+      setProctorNotice(null);
+    }, 5500);
+  }, [ended, completed, sessionId]);
+
+  const { detectedProhibited, hasProhibitedItem } = useObjectProctoring(videoRef, {
+    onObjectViolation: handleObjectViolation,
+    confidenceThreshold: 0.52,
+    sustainedThresholdMs: 1000,
+  });
 
   useEffect(() => {
     let mounted = true;
@@ -171,23 +229,44 @@ export default function LiveViva({ sessionId, name, rollNo }) {
       setTranscript("Listening and transcribing...");
       setAnswered(false);
       if (streamRef.current) {
-        // Use a mimeType supported by MediaRecorder (webm is usually default in Chrome/Firefox)
-        const mediaRecorder = new MediaRecorder(streamRef.current);
+        const audioTracks = streamRef.current.getAudioTracks();
+        if (!audioTracks || audioTracks.length === 0) {
+          setTranscript("Error: No microphone track detected.");
+          return;
+        }
+
+        // Record ONLY the audio track, never video frames
+        const audioStream = new MediaStream(audioTracks);
+
+        const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+          ? "audio/webm;codecs=opus"
+          : MediaRecorder.isTypeSupported("audio/webm")
+          ? "audio/webm"
+          : "";
+
+        const mediaRecorder = mimeType
+          ? new MediaRecorder(audioStream, { mimeType })
+          : new MediaRecorder(audioStream);
+
         mediaRecorderRef.current = mediaRecorder;
         
         socketRef.current.emit("audio:start");
         
         mediaRecorder.ondataavailable = (event) => {
-          if (event.data.size > 0) {
+          if (event.data && event.data.size > 0) {
             socketRef.current.emit("audio:chunk", event.data);
           }
         };
         
-        mediaRecorder.onstop = async () => {
-          socketRef.current.emit("audio:stop", { sessionId });
+        mediaRecorder.onstop = () => {
+          // Flush final audio buffers before signaling stop
+          setTimeout(() => {
+            if (socketRef.current) {
+              socketRef.current.emit("audio:stop", { sessionId });
+            }
+          }, 150);
         };
         
-        // Send chunks every 250ms for real-time streaming
         mediaRecorder.start(250);
         setRecording(true);
       }
@@ -304,7 +383,28 @@ export default function LiveViva({ sessionId, name, rollNo }) {
         </div>
 
         <aside className="live-viva-sidebar">
-          <section className="webcam-card"><h2>Live Proctored Webcam Feed</h2><div className="live-webcam"><video ref={videoRef} autoPlay muted playsInline /><span><i /> PROCTOR SECURE</span></div></section>
+          <section className={`webcam-card ${hasProhibitedItem ? "prohibited-alert" : ""}`}>
+            <div className="webcam-card-header">
+              <h2>Live Proctored Feed</h2>
+              <span className="webcam-card-live-dot"><i /> LIVE</span>
+            </div>
+            <div className={`live-webcam ${hasProhibitedItem ? "alert-frame" : ""}`}>
+              <video ref={videoRef} autoPlay muted playsInline />
+              <div className={`proctor-badge ${hasProhibitedItem ? "status-violation" : `status-${proctorStatus.toLowerCase()}`}`}>
+                <i /> <span>{hasProhibitedItem ? `PROHIBITED: ${detectedProhibited?.name}` : (proctorStatus === "NORMAL" ? "PROCTOR SECURE" : proctorLabel)}</span>
+              </div>
+              {gazeState && (
+                <div className={`proctor-iris-hud ${gazeState.isLookingAway ? "gaze-alert" : ""}`}>
+                  <Eye size={11} /> <span className="proctor-iris-text">{gazeState.label}</span>
+                </div>
+              )}
+            </div>
+            {(proctorNotice || hasProhibitedItem) && (
+              <div className="proctor-notice-banner">
+                <AlertTriangle size={12} /> <span>{hasProhibitedItem ? `Warning: ${detectedProhibited?.name} detected in camera view!` : proctorNotice}</span>
+              </div>
+            )}
+          </section>
           <section className="audio-card"><h2>Real-time Audio Analyzer <b>Mic Active</b></h2><div className="waveform">{audioData.map((height, index) => <i key={index} style={{ height: `${height}px` }} />)}</div></section>
           <section className="question-grid-card"><h2>Examination Progress Grid</h2><div className="question-grid">{Array.from({ length: totalQuestions }).map((_, index) => <button key={index} className={index + 1 === questionNumber ? "current" : index + 1 < questionNumber ? "answered" : ""} type="button" disabled>{index + 1}</button>)}</div></section>
         </aside>

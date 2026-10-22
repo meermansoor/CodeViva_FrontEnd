@@ -154,6 +154,11 @@ export default function LiveMonitoring() {
                newMapped[idx].question = "Finished";
                newMapped[idx].remaining = `Score: ${data.totalScore}`;
              }
+          } else if (data.type === 'PROCTOR_ALERT') {
+             const idx = newMapped.findIndex(s => s.id === data.sessionId);
+             if (idx !== -1) {
+               newMapped[idx].risk = data.cheatingProbability;
+             }
           }
           
           return { ...room, mappedStudents: newMapped };
