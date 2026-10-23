@@ -24,7 +24,7 @@ export default function LiveViva({ sessionId, name, rollNo }) {
   
   const [audioData, setAudioData] = useState(new Array(22).fill(12));
   const [questionNumber, setQuestionNumber] = useState(1);
-  const [totalQuestions, setTotalQuestions] = useState(10);
+  const [totalQuestions, setTotalQuestions] = useState(5);
   const [currentQuestionText, setCurrentQuestionText] = useState("Loading...");
   const [currentQuestionAudio, setCurrentQuestionAudio] = useState(null);
   const [currentQuestionId, setCurrentQuestionId] = useState(null);
@@ -33,10 +33,11 @@ export default function LiveViva({ sessionId, name, rollNo }) {
   
   const API_BASE_URL = import.meta.env.VITE_RAG_API_URL || "http://192.168.100.100:8000";
   
-  const [secondsLeft, setSecondsLeft] = useState(28 * 60 + 42);
+  const [secondsLeft, setSecondsLeft] = useState(null);
   const [recording, setRecording] = useState(false);
   const [answered, setAnswered] = useState(false);
   const [transcript, setTranscript] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [ended, setEnded] = useState(false);
   const [reviewingSkipped, setReviewingSkipped] = useState(false);
@@ -172,7 +173,10 @@ export default function LiveViva({ sessionId, name, rollNo }) {
       .catch(() => {});
 
     const timer = window.setInterval(() => {
-      setSecondsLeft((current) => Math.max(0, current - 1));
+      setSecondsLeft((current) => {
+        if (current === null) return null;
+        return Math.max(0, current - 1);
+      });
     }, 1000);
 
     return () => {
@@ -184,6 +188,12 @@ export default function LiveViva({ sessionId, name, rollNo }) {
       if (socketRef.current) socketRef.current.disconnect();
     };
   }, [sessionId]);
+
+  useEffect(() => {
+    if (secondsLeft !== null && secondsLeft <= 0 && !ended && !completed && sessionId) {
+      exitSession();
+    }
+  }, [secondsLeft, ended, completed, sessionId]);
 
   useEffect(() => {
     let mounted = true;
@@ -217,7 +227,10 @@ export default function LiveViva({ sessionId, name, rollNo }) {
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, [ended, warningCount]);
 
-  const formatTime = () => `${String(Math.floor(secondsLeft / 60)).padStart(2, "0")}:${String(Math.floor(secondsLeft % 60)).padStart(2, "0")}`;
+  const formatTime = () => {
+    if (secondsLeft === null) return "--:--";
+    return `${String(Math.floor(secondsLeft / 60)).padStart(2, "0")}:${String(Math.floor(secondsLeft % 60)).padStart(2, "0")}`;
+  };
 
   const handleRecord = async () => {
     if (recording) {
@@ -274,6 +287,8 @@ export default function LiveViva({ sessionId, name, rollNo }) {
   };
 
   const skipQuestion = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     setSkippedQuestionNumbers((current) => (
       current.includes(questionNumber) ? current : [...current, questionNumber]
     ));
@@ -297,10 +312,14 @@ export default function LiveViva({ sessionId, name, rollNo }) {
       setTranscript("");
     } catch (err) {
       console.error(err);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const nextQuestion = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
       await axios.post(`http://localhost:5000/api/viva/session/${sessionId}/action`, {
         command: "SUBMIT_AUDIO",
@@ -329,6 +348,8 @@ export default function LiveViva({ sessionId, name, rollNo }) {
       setTranscript("");
     } catch (err) {
       console.error(err);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -374,10 +395,12 @@ export default function LiveViva({ sessionId, name, rollNo }) {
             )}
           </article>
           <div className="live-viva-actions">
-            <button className={`record-button ${recording ? "recording" : ""}`} type="button" onClick={handleRecord}><Mic size={15} />{recording ? "Stop Recording" : "Record Verbal Answer"}</button>
-            <button className="skip-button" type="button" onClick={skipQuestion}>Skip Question</button>
-            <button className="next-question-button" type="button" onClick={nextQuestion} disabled={!answered}>{questionNumber === totalQuestions ? "Finish Viva" : "Submit Answer & Next"} <ArrowRight size={13} /></button>
-            <button className="exit-button" type="button" onClick={exitSession}>Exit Viva Session</button>
+            <button className={`record-button ${recording ? "recording" : ""}`} type="button" onClick={handleRecord} disabled={isSubmitting}><Mic size={15} />{recording ? "Stop Recording" : "Record Verbal Answer"}</button>
+            <button className="skip-button" type="button" onClick={skipQuestion} disabled={isSubmitting}>Skip Question</button>
+            <button className="next-question-button" type="button" onClick={nextQuestion} disabled={!answered || isSubmitting}>
+              {isSubmitting ? "Evaluating..." : (questionNumber === totalQuestions ? "Finish Viva" : "Submit Answer & Next")} <ArrowRight size={13} />
+            </button>
+            <button className="exit-button" type="button" onClick={exitSession} disabled={isSubmitting}>Exit Viva Session</button>
           </div>
           {ended && <p className="session-ended">Viva session ended.</p>}
         </div>

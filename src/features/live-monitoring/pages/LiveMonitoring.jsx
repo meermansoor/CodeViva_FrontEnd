@@ -145,7 +145,10 @@ export default function LiveMonitoring() {
              if (idx !== -1) {
                const curr = data.sessionData.currentQuestion;
                newMapped[idx].question = `Q${curr?.index + 1}/${curr?.total}`;
-               newMapped[idx].remaining = `${data.sessionData.elapsedTime || 0}s elapsed`;
+               const scoreDisplay = data.currentScore !== undefined ? ` • Score: ${data.currentScore}` : '';
+               newMapped[idx].remaining = `${data.sessionData.elapsedTime || 0}s${scoreDisplay}`;
+               newMapped[idx].hasFlaggedReview = data.hasFlaggedReview || false;
+               newMapped[idx].currentScore = data.currentScore || 0;
              }
           } else if (data.type === 'SESSION_COMPLETED') {
              const idx = newMapped.findIndex(s => s.id === data.sessionId);
@@ -321,9 +324,16 @@ export default function LiveMonitoring() {
                       <span>{student.rollNo}</span>
                     </div>
                   </div>
-                  <span className={`student-status ${getStatusClass(student.status)}`}>
-                    {student.status}
-                  </span>
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                    {student.hasFlaggedReview && (
+                      <span style={{ fontSize: '10px', background: '#fef3c7', color: '#b45309', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
+                        Review Flag
+                      </span>
+                    )}
+                    <span className={`student-status ${getStatusClass(student.status)}`}>
+                      {student.status}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="student-progress-row">

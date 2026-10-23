@@ -63,7 +63,14 @@ export default function CreateViva() {
 
   useEffect(() => {
     let interval;
-    if (syllabusId && questions.length > 0 && questions.some(q => !q.audio_file)) {
+    const isMissingData = questions.some(q => 
+      !q.audio_file || 
+      ((!q.keywords || q.keywords.length === 0) && 
+       (!q.expected_keywords || q.expected_keywords.length === 0) && 
+       (!q.answer_keywords || q.answer_keywords.length === 0))
+    );
+
+    if (syllabusId && questions.length > 0 && isMissingData) {
       interval = setInterval(async () => {
         try {
           const res = await axios.get(`http://localhost:5000/api/questions/syllabus/${syllabusId}`);
@@ -71,11 +78,16 @@ export default function CreateViva() {
             setQuestions(prev => prev.map(q => {
               const matched = res.data.data.questions.find(apiQ => apiQ.id === q.id);
               if (matched) {
+                const kws = (matched.answer_keywords && matched.answer_keywords.length > 0)
+                  ? matched.answer_keywords
+                  : (matched.expected_keywords && matched.expected_keywords.length > 0)
+                  ? matched.expected_keywords
+                  : (q.keywords || []);
                 return { 
                   ...q, 
-                  audio_file: matched.audio_file,
-                  model_answer: matched.model_answer,
-                  keywords: (matched.expected_keywords && matched.expected_keywords.length > 0) ? matched.expected_keywords : (matched.answer_keywords || q.keywords || []),
+                  audio_file: matched.audio_file || q.audio_file,
+                  model_answer: matched.model_answer || q.model_answer,
+                  keywords: kws,
                   concepts: matched.concepts || q.concepts || [],
                   topic: matched.topic || q.topic,
                   difficulty: matched.difficulty || q.difficulty
@@ -85,7 +97,7 @@ export default function CreateViva() {
             }));
           }
         } catch (err) {
-          console.error("Failed to poll questions for audio", err);
+          console.error("Failed to poll questions for audio and keywords", err);
         }
       }, 3000);
     }
@@ -99,6 +111,7 @@ export default function CreateViva() {
   const [settings, setSettings] = useState({
     duration: "30",
     questionsPerStudent: "5",
+    totalMarks: "15",
     difficulty: "Moderate",
     randomizeQuestions: true,
     enableProctoring: true,
@@ -457,18 +470,33 @@ export default function CreateViva() {
     try {
       const token = localStorage.getItem("teacherToken");
       
+      const durationMin = parseInt(settings.duration, 10) || 30;
+      const questionsCount = parseInt(settings.questionsPerStudent, 10) || 5;
+      const totalMarks = parseFloat(settings.totalMarks) || 15.0;
+
       // Synchronize fully-completed questions with DB before creating the room
       await axios.put(`http://localhost:5000/api/questions/${questionBankId}`, {
-        questions: questions.map(q => ({
-          id: q.id,
-          question: q.text,
-          keywords: (q.expected_keywords && q.expected_keywords.length > 0) ? q.expected_keywords : (q.keywords || []),
-          concepts: q.concepts || [],
-          audio_file: q.audio_file || null,
-          topic: q.topic || "General",
-          difficulty: q.difficulty || "medium",
-          model_answer: q.model_answer || ""
-        }))
+        questions: questions.map(q => {
+          const kws = (q.answer_keywords && q.answer_keywords.length > 0)
+            ? q.answer_keywords
+            : (q.expected_keywords && q.expected_keywords.length > 0)
+            ? q.expected_keywords
+            : (q.keywords || []);
+          return {
+            id: q.id,
+            question: q.text || q.question,
+            keywords: kws,
+            concepts: q.concepts || [],
+            audio_file: q.audio_file || null,
+            topic: q.topic || "General",
+            difficulty: q.difficulty || "medium",
+            model_answer: q.model_answer || "",
+            marks: q.marks || Math.round((totalMarks / questionsCount) * 100) / 100
+          };
+        }),
+        timeLimitSec: durationMin * 60,
+        questionsPerStudent: questionsCount,
+        totalMarks: totalMarks
       });
 
       const res = await axios.post("http://localhost:5000/api/teacher/exam-rooms", {
@@ -477,7 +505,20 @@ export default function CreateViva() {
           rollNo: s.rollNumber,
           name: s.name,
           email: s.email
-        }))
+        })),
+        courseDetails: {
+          courseName: form.courseName || "",
+          courseCode: form.courseCode || "",
+          department: form.department || "",
+          batch: form.batch || "",
+          section: form.section || "",
+          semester: form.semester || "",
+          academicYear: form.academicYear || ""
+        },
+        timeLimitSec: durationMin * 60,
+        questionsPerStudent: questionsCount,
+        totalMarks: totalMarks,
+        settings: settings
       }, {
         headers: {
           Authorization: `Bearer ${token}`
@@ -1186,14 +1227,51 @@ export default function CreateViva() {
                   </div>
 
                   <div className="setting-field">
+                    <label>Total Marks per Session</label>
+
+                    <div className="number-control">
+                      <span>
+                        {settings.totalMarks || "15"} Marks (~{(
+                          (Number(settings.totalMarks || 15) / Math.max(1, Number(settings.questionsPerStudent || 5)))
+                        ).toFixed(1)} / Q)
+                      </span>
+                      <button
+                        aria-label="Decrease total marks"
+                        onClick={() =>
+                          updateSettings(
+                            "totalMarks",
+                            String(Math.max(5, Number(settings.totalMarks || 15) - 5))
+                          )
+                        }
+                      >
+                        <Minus size={13} />
+                      </button>
+                      <button
+                        aria-label="Increase total marks"
+                        onClick={() =>
+                          updateSettings(
+                            "totalMarks",
+                            String(Number(settings.totalMarks || 15) + 5)
+                          )
+                        }
+                      >
+                        <Plus size={13} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="setting-field">
                     <label>Time Limit per Student</label>
 
                     <select
                       value={settings.duration}
                       onChange={(e) => updateSettings("duration", e.target.value)}
                     >
+                      <option value="5">5 Minutes</option>
+                      <option value="10">10 Minutes</option>
                       <option value="15">15 Minutes</option>
                       <option value="20">20 Minutes</option>
+                      <option value="25">25 Minutes</option>
                       <option value="30">30 Minutes</option>
                       <option value="45">45 Minutes</option>
                       <option value="60">60 Minutes</option>
@@ -1282,6 +1360,10 @@ export default function CreateViva() {
                   <div>
                     <dt>Target Questions</dt>
                     <dd>{settings.questionsPerStudent} Prompts Mapped</dd>
+                  </div>
+                  <div>
+                    <dt>Total Viva Marks</dt>
+                    <dd>{settings.totalMarks || "15"} Marks</dd>
                   </div>
                   <div>
                     <dt>Est. Total Hours</dt>
@@ -1379,6 +1461,11 @@ export default function CreateViva() {
                 <div className="summary-row">
                   <span>Difficulty</span>
                   <strong>{settings.difficulty}</strong>
+                </div>
+
+                <div className="summary-row">
+                  <span>Total Viva Marks</span>
+                  <strong>{settings.totalMarks || "15"} Marks (~{((Number(settings.totalMarks || 15)) / Math.max(1, Number(settings.questionsPerStudent || 5))).toFixed(1)} marks/question)</strong>
                 </div>
 
                 <div className="summary-row">
