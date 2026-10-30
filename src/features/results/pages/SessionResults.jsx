@@ -1,4 +1,6 @@
+
 import { useEffect, useMemo, useState, useCallback } from "react";
+import { useLocation } from "react-router-dom";
 import axios from "axios";
 import {
   Award,
@@ -25,6 +27,7 @@ import "../styles/session-results.css";
 ========================================================= */
 
 export default function SessionResults() {
+  const location = useLocation();
   const [examRooms, setExamRooms] = useState([]);
   const [selectedRoomId, setSelectedRoomId] = useState("");
   const [dashboardData, setDashboardData] = useState(null);
@@ -55,7 +58,9 @@ export default function SessionResults() {
           const rooms = res.data.data;
           setExamRooms(rooms);
           if (rooms.length > 0) {
-            setSelectedRoomId(rooms[0]._id);
+            const queryRoomId = new URLSearchParams(location.search).get("roomId") || location.state?.roomId;
+            const matchingRoom = rooms.find(r => r._id === queryRoomId);
+            setSelectedRoomId(matchingRoom ? matchingRoom._id : rooms[0]._id);
           }
         }
       } catch (err) {
@@ -63,7 +68,7 @@ export default function SessionResults() {
       }
     };
     fetchRooms();
-  }, []);
+  }, [location.search, location.state]);
 
   // Fetch Dashboard Data for Selected Room
   const fetchDashboard = useCallback(async () => {
@@ -110,7 +115,7 @@ export default function SessionResults() {
 
   const filteredStudents = useMemo(() => {
     if (!dashboardData || !dashboardData.students_table) return [];
-    
+
     let data = [...dashboardData.students_table];
 
     if (gradeFilter !== "All Grades") {
@@ -297,7 +302,7 @@ export default function SessionResults() {
     return (
       <div className="app-shell session-results-shell">
         <Sidebar />
-        <div className="main-area" style={{display:'flex', alignItems:'center', justifyContent:'center'}}>
+        <div className="main-area" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <h2>Loading... or No Exam Rooms Found</h2>
         </div>
       </div>

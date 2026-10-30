@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import axios from "axios";
-import io from "socket.io-client";
+import { getSocket } from "../../../services/socket";
 import IdentityVerification from "../identity/IdentityVerification";
 import EnvironmentCheck from "../environment/EnvironmentCheck";
 import VivaInstructions from "../instructions/VivaInstructions";
@@ -47,18 +47,29 @@ export default function StudentPortal() {
         setIsValidating(false);
       });
 
-    const socket = io("http://localhost:5000");
-    socket.on('ROOM_CLOSED', (data) => {
+    const socket = getSocket();
+    if (roomCode) {
+      socket.emit("room:join", { roomCode, role: "student" });
+    }
+
+    const handleRoomClosed = (data) => {
       if (data.roomCode === roomCode) {
         setIsRoomValid(false);
         setSessionError("The teacher has ended the exam room. Your session was terminated.");
         // Redirect them out completely
         window.location.href = "/register";
       }
-    });
+    };
+
+    socket.on('ROOM_CLOSED', handleRoomClosed);
+    socket.on('room:closed', handleRoomClosed);
 
     return () => {
-      socket.disconnect();
+      if (roomCode) {
+        socket.emit("room:leave", { roomCode });
+      }
+      socket.off('ROOM_CLOSED', handleRoomClosed);
+      socket.off('room:closed', handleRoomClosed);
     };
   }, [roomCode]);
 
@@ -120,7 +131,7 @@ export default function StudentPortal() {
           {sessionError && <div style={{ color: 'red', textAlign: 'center', marginTop: '10px' }}>{sessionError}</div>}
         </div>
       )}
-      {step === 4 && <LiveViva sessionId={sessionId} name={name} rollNo={rollNo} />}
+      {step === 4 && <LiveViva sessionId={sessionId} name={name} rollNo={rollNo} roomCode={roomCode} />}
     </main>
   );
 }

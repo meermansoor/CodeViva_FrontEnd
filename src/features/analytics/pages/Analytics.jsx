@@ -1,5 +1,7 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import axios from "axios";
 import {
+  AlertCircle,
   BarChart3,
   CalendarDays,
   ChevronDown,
@@ -7,220 +9,22 @@ import {
   FolderOpen,
   GraduationCap,
   LineChart,
+  RefreshCw,
   TrendingUp,
   Users,
 } from "lucide-react";
 
 import Sidebar from "../../dashboard/components/Sidebar";
-
 import "../styles/analytics.css";
 
 /* =========================================================
-   SUBJECT DATA
+   TREND CHART (DYNAMIC)
 ========================================================= */
 
-const subjectData = {
-  "Computer Networks": {
-    code: "CS-401",
+function TrendChart({ trend }) {
+  const values = trend?.values || [];
+  const labels = trend?.labels || [];
 
-    overview: {
-      sessions: 24,
-      scheduledNextWeek: 3,
-      averageScore: 78,
-      passRate: 91,
-      duration: 18,
-    },
-
-    topics: [
-      {
-        name: "Transport Layer",
-        score: 86,
-      },
-      {
-        name: "Routing Algorithms",
-        score: 72,
-      },
-      {
-        name: "TCP/IP Protocols",
-        score: 81,
-      },
-      {
-        name: "Network Security",
-        score: 64,
-      },
-      {
-        name: "Congestion Control",
-        score: 78,
-      },
-    ],
-
-    trend: [68, 74, 79, 71, 83, 88],
-
-    difficulty: {
-      total: 186,
-      moderate: 45,
-      easy: 33,
-      hard: 22,
-    },
-
-    students: [
-      {
-        rank: 1,
-        name: "Albert Einstein",
-        score: 96.4,
-        sessions: "4 of 4 Completed",
-      },
-      {
-        rank: 2,
-        name: "Marie Curie",
-        score: 94.8,
-        sessions: "4 of 4 Completed",
-      },
-      {
-        rank: 3,
-        name: "Grace Hopper",
-        score: 91.2,
-        sessions: "3 of 4 Completed",
-      },
-    ],
-  },
-
-  "Data Structures": {
-    code: "CS-202",
-
-    overview: {
-      sessions: 18,
-      scheduledNextWeek: 2,
-      averageScore: 82,
-      passRate: 94,
-      duration: 16,
-    },
-
-    topics: [
-      {
-        name: "Arrays & Linked Lists",
-        score: 91,
-      },
-      {
-        name: "Trees & BST Graphs",
-        score: 84,
-      },
-      {
-        name: "Sorting & Searching",
-        score: 88,
-      },
-      {
-        name: "Hash Tables",
-        score: 76,
-      },
-      {
-        name: "Graph Algorithms",
-        score: 81,
-      },
-    ],
-
-    trend: [72, 78, 81, 79, 87, 91],
-
-    difficulty: {
-      total: 142,
-      moderate: 42,
-      easy: 36,
-      hard: 22,
-    },
-
-    students: [
-      {
-        rank: 1,
-        name: "Albert Einstein",
-        score: 98.1,
-        sessions: "4 of 4 Completed",
-      },
-      {
-        rank: 2,
-        name: "Marie Curie",
-        score: 95.3,
-        sessions: "4 of 4 Completed",
-      },
-      {
-        rank: 3,
-        name: "Alan Turing",
-        score: 92.7,
-        sessions: "4 of 4 Completed",
-      },
-    ],
-  },
-
-  "Artificial Intelligence": {
-    code: "CS-480",
-
-    overview: {
-      sessions: 15,
-      scheduledNextWeek: 2,
-      averageScore: 84,
-      passRate: 96,
-      duration: 21,
-    },
-
-    topics: [
-      {
-        name: "Machine Learning",
-        score: 89,
-      },
-      {
-        name: "Search Algorithms",
-        score: 83,
-      },
-      {
-        name: "Neural Networks",
-        score: 86,
-      },
-      {
-        name: "Natural Language Processing",
-        score: 74,
-      },
-      {
-        name: "Computer Vision",
-        score: 80,
-      },
-    ],
-
-    trend: [75, 79, 84, 82, 89, 93],
-
-    difficulty: {
-      total: 124,
-      moderate: 48,
-      easy: 30,
-      hard: 22,
-    },
-
-    students: [
-      {
-        rank: 1,
-        name: "Grace Hopper",
-        score: 97.6,
-        sessions: "4 of 4 Completed",
-      },
-      {
-        rank: 2,
-        name: "Alan Turing",
-        score: 95.1,
-        sessions: "4 of 4 Completed",
-      },
-      {
-        rank: 3,
-        name: "Marie Curie",
-        score: 93.8,
-        sessions: "3 of 3 Completed",
-      },
-    ],
-  },
-};
-
-/* =========================================================
-   TREND CHART
-========================================================= */
-
-function TrendChart({ values }) {
   const width = 560;
   const height = 190;
 
@@ -232,17 +36,61 @@ function TrendChart({ values }) {
   const chartWidth = width - paddingLeft - paddingRight;
   const chartHeight = height - paddingTop - paddingBottom;
 
-  const min = Math.min(...values) - 5;
-  const max = Math.max(...values) + 5;
+  if (
+    !values ||
+    values.length === 0 ||
+    (values.length === 1 && (labels[0] === "No Data" || values[0] === 0))
+  ) {
+    return (
+      <div className="trend-chart">
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          className="trend-svg"
+          preserveAspectRatio="none"
+        >
+          {[0, 1, 2, 3, 4].map((line) => {
+            const y = paddingTop + (line * chartHeight) / 4;
+            return (
+              <line
+                key={line}
+                x1={paddingLeft}
+                x2={width - paddingRight}
+                y1={y}
+                y2={y}
+                className="chart-grid-line"
+              />
+            );
+          })}
+        </svg>
+
+        <div className="trend-chart-empty-msg">
+          <span>No viva score trends recorded for this period yet</span>
+        </div>
+      </div>
+    );
+  }
+
+  let minVal = Math.min(...values);
+  let maxVal = Math.max(...values);
+  let min = minVal;
+  let max = maxVal;
+
+  if (min === max) {
+    min = Math.max(0, min - 10);
+    max = Math.min(100, max + 10);
+  } else {
+    min = Math.max(0, min - 5);
+    max = Math.min(100, max + 5);
+  }
 
   const points = values.map((value, index) => {
     const x =
-      paddingLeft +
-      (index * chartWidth) / (values.length - 1);
+      values.length === 1
+        ? paddingLeft + chartWidth / 2
+        : paddingLeft + (index * chartWidth) / (values.length - 1);
 
     const y =
-      paddingTop +
-      ((max - value) / (max - min)) * chartHeight;
+      paddingTop + ((max - value) / (max - min)) * chartHeight;
 
     return {
       x,
@@ -251,13 +99,14 @@ function TrendChart({ values }) {
     };
   });
 
-  const path = points
-    .map((point, index) => {
-      return `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`;
-    })
-    .join(" ");
-
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
+  const path =
+    points.length === 1
+      ? `M ${paddingLeft} ${points[0].y} L ${width - paddingRight} ${points[0].y}`
+      : points
+          .map((point, index) => {
+            return `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`;
+          })
+          .join(" ");
 
   return (
     <div className="trend-chart">
@@ -268,9 +117,7 @@ function TrendChart({ values }) {
       >
         {/* Horizontal grid lines */}
         {[0, 1, 2, 3, 4].map((line) => {
-          const y =
-            paddingTop +
-            (line * chartHeight) / 4;
+          const y = paddingTop + (line * chartHeight) / 4;
 
           return (
             <line
@@ -285,11 +132,7 @@ function TrendChart({ values }) {
         })}
 
         {/* Trend line */}
-        <path
-          d={path}
-          className="trend-path"
-          fill="none"
-        />
+        <path d={path} className="trend-path" fill="none" />
 
         {/* Points */}
         {points.map((point, index) => (
@@ -299,13 +142,15 @@ function TrendChart({ values }) {
             cy={point.y}
             r="3.5"
             className="trend-point"
-          />
+          >
+            <title>{`${labels[index] || ""}: ${point.value}%`}</title>
+          </circle>
         ))}
       </svg>
 
       <div className="trend-labels">
-        {months.map((month) => (
-          <span key={month}>{month}</span>
+        {labels.map((lbl, idx) => (
+          <span key={idx}>{lbl}</span>
         ))}
       </div>
     </div>
@@ -313,38 +158,28 @@ function TrendChart({ values }) {
 }
 
 /* =========================================================
-   DIFFICULTY DONUT
+   DIFFICULTY DONUT (DYNAMIC)
 ========================================================= */
 
 function DifficultyChart({ difficulty }) {
   const {
-    total,
-    moderate,
-    easy,
-    hard,
-  } = difficulty;
+    total = 0,
+    moderate = 0,
+    easy = 0,
+    hard = 0,
+  } = difficulty || {};
 
   const radius = 55;
   const circumference = 2 * Math.PI * radius;
 
-  const moderateLength =
-    (moderate / 100) * circumference;
-
-  const easyLength =
-    (easy / 100) * circumference;
-
-  const hardLength =
-    (hard / 100) * circumference;
+  const moderateLength = (moderate / 100) * circumference;
+  const easyLength = (easy / 100) * circumference;
+  const hardLength = (hard / 100) * circumference;
 
   return (
     <div className="difficulty-chart-wrapper">
-
       <div className="donut-chart">
-
-        <svg
-          viewBox="0 0 140 140"
-          className="donut-svg"
-        >
+        <svg viewBox="0 0 140 140" className="donut-svg">
           <circle
             cx="70"
             cy="70"
@@ -352,54 +187,54 @@ function DifficultyChart({ difficulty }) {
             className="donut-background"
           />
 
-          {/* Moderate */}
-          <circle
-            cx="70"
-            cy="70"
-            r={radius}
-            className="donut-moderate"
-            strokeDasharray={`${moderateLength} ${
-              circumference - moderateLength
-            }`}
-            strokeDashoffset="0"
-          />
+          {total > 0 && (
+            <>
+              {/* Moderate */}
+              <circle
+                cx="70"
+                cy="70"
+                r={radius}
+                className="donut-moderate"
+                strokeDasharray={`${moderateLength} ${
+                  circumference - moderateLength
+                }`}
+                strokeDashoffset="0"
+              />
 
-          {/* Easy */}
-          <circle
-            cx="70"
-            cy="70"
-            r={radius}
-            className="donut-easy"
-            strokeDasharray={`${easyLength} ${
-              circumference - easyLength
-            }`}
-            strokeDashoffset={-moderateLength}
-          />
+              {/* Easy */}
+              <circle
+                cx="70"
+                cy="70"
+                r={radius}
+                className="donut-easy"
+                strokeDasharray={`${easyLength} ${
+                  circumference - easyLength
+                }`}
+                strokeDashoffset={-moderateLength}
+              />
 
-          {/* Hard */}
-          <circle
-            cx="70"
-            cy="70"
-            r={radius}
-            className="donut-hard"
-            strokeDasharray={`${hardLength} ${
-              circumference - hardLength
-            }`}
-            strokeDashoffset={
-              -(moderateLength + easyLength)
-            }
-          />
+              {/* Hard */}
+              <circle
+                cx="70"
+                cy="70"
+                r={radius}
+                className="donut-hard"
+                strokeDasharray={`${hardLength} ${
+                  circumference - hardLength
+                }`}
+                strokeDashoffset={-(moderateLength + easyLength)}
+              />
+            </>
+          )}
         </svg>
 
         <div className="donut-center">
           <strong>{total}</strong>
           <span>Assessed</span>
         </div>
-
       </div>
 
       <div className="difficulty-legend">
-
         <div>
           <span className="legend-dot moderate-dot" />
           <span>Moderate:</span>
@@ -417,7 +252,6 @@ function DifficultyChart({ difficulty }) {
           <span>Hard:</span>
           <strong>{hard}%</strong>
         </div>
-
       </div>
     </div>
   );
@@ -428,116 +262,186 @@ function DifficultyChart({ difficulty }) {
 ========================================================= */
 
 export default function Analytics() {
-  const [selectedSubject, setSelectedSubject] =
-    useState("Computer Networks");
+  const [selectedRoomId, setSelectedRoomId] = useState("all");
+  const [period, setPeriod] = useState("Last 6 Months");
+  const [examRooms, setExamRooms] = useState([]);
+  const [analyticsData, setAnalyticsData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const [period, setPeriod] =
-    useState("Last 6 Months");
+  const fetchAnalyticsData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-  const data = useMemo(() => {
-    return subjectData[selectedSubject];
-  }, [selectedSubject]);
+      const token = localStorage.getItem("teacherToken");
+      if (!token) {
+        setError("Teacher authentication required. Please sign in to view analytics.");
+        setLoading(false);
+        return;
+      }
+
+      const res = await axios.get("http://localhost:5000/api/teacher/analytics", {
+        params: {
+          examRoomId: selectedRoomId,
+          period: period,
+        },
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (res.data && res.data.success) {
+        const payload = res.data.data;
+        setAnalyticsData(payload);
+        if (payload.examRooms && Array.isArray(payload.examRooms)) {
+          setExamRooms(payload.examRooms);
+        }
+      } else {
+        setError(res.data?.message || "Failed to load analytics data.");
+      }
+    } catch (err) {
+      console.error("Error fetching analytics:", err);
+      setError(
+        err.response?.data?.message ||
+          err.message ||
+          "Network error while loading analytics."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedRoomId, period]);
+
+  useEffect(() => {
+    fetchAnalyticsData();
+  }, [fetchAnalyticsData]);
+
+  // Derive display values from current state & loaded analyticsData
+  const isAll = !selectedRoomId || selectedRoomId === "all";
+
+  const bannerTitle = isAll
+    ? "All Exam Rooms (Consolidated)"
+    : analyticsData?.subject?.name || "Exam Room Viva Analytics";
+
+  const bannerSubtitle = isAll
+    ? "Consolidated performance and AI viva evaluation metrics across all courses"
+    : `${analyticsData?.subject?.code || "N/A"} • Room #${
+        analyticsData?.subject?.roomCode || ""
+      }`;
+
+  const overview = analyticsData?.overview || {
+    sessions: 0,
+    scheduledNextWeek: 0,
+    averageScore: 0,
+    passRate: 0,
+    duration: 0,
+  };
+
+  const topics = analyticsData?.topics || [];
+  const students = analyticsData?.students || [];
 
   return (
     <div className="app-shell analytics-shell">
-
       <Sidebar />
 
       <div className="main-area">
-
         <main className="analytics-content">
-
           {/* =================================================
               PAGE HEADER
           ================================================= */}
 
           <div className="analytics-header">
-
             <div>
               <h1>Analytics Overview</h1>
-
               <p>
-                Subject-wise academic performance and
-                AI viva evaluation metrics.
+                Subject-wise academic performance and AI viva evaluation
+                metrics.
               </p>
             </div>
 
             <div className="analytics-controls">
-
-              {/* SUBJECT */}
+              {/* EXAM ROOM / SUBJECT SELECTOR */}
               <div className="analytics-select">
-
                 <BookOpenIcon />
-
                 <select
-                  value={selectedSubject}
-                  onChange={(e) =>
-                    setSelectedSubject(e.target.value)
-                  }
+                  value={selectedRoomId}
+                  onChange={(e) => setSelectedRoomId(e.target.value)}
+                  disabled={loading && !analyticsData}
                 >
-                  {Object.keys(subjectData).map(
-                    (subject) => (
-                      <option
-                        key={subject}
-                        value={subject}
-                      >
-                        {subject}
+                  <option value="all">All Exam Rooms (Consolidated)</option>
+                  {examRooms.map((room) => {
+                    const rId = room.id || room._id;
+                    return (
+                      <option key={rId} value={rId}>
+                        {room.courseName} ({room.courseCode} • #{room.roomCode})
                       </option>
-                    )
-                  )}
+                    );
+                  })}
                 </select>
-
                 <ChevronDown size={13} />
               </div>
 
-              {/* PERIOD */}
+              {/* TIMELINE PERIOD SELECTOR */}
               <div className="analytics-select">
-
                 <CalendarDays size={13} />
-
                 <select
                   value={period}
-                  onChange={(e) =>
-                    setPeriod(e.target.value)
-                  }
+                  onChange={(e) => setPeriod(e.target.value)}
+                  disabled={loading && !analyticsData}
                 >
-                  <option>Last 6 Months</option>
-                  <option>Last 3 Months</option>
-                  <option>Last Month</option>
-                  <option>This Semester</option>
-                  <option>This Year</option>
+                  <option value="Last 6 Months">Last 6 Months</option>
+                  <option value="Last 3 Months">Last 3 Months</option>
+                  <option value="Last Month">Last Month</option>
+                  <option value="This Semester">This Semester</option>
+                  <option value="This Year">This Year</option>
+                  <option value="All Time">All Time</option>
                 </select>
-
                 <ChevronDown size={13} />
-
               </div>
 
+              {/* REFRESH BUTTON */}
+              <button
+                className="analytics-refresh-button"
+                onClick={fetchAnalyticsData}
+                disabled={loading}
+                title="Refresh Analytics"
+              >
+                <RefreshCw size={14} className={loading ? "spin" : ""} />
+              </button>
             </div>
-
           </div>
+
+          {/* ERROR ALERT BANNER */}
+          {error && (
+            <div className="analytics-error-banner">
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <AlertCircle size={16} />
+                <span>{error}</span>
+              </div>
+              <button
+                className="analytics-retry-btn"
+                onClick={fetchAnalyticsData}
+              >
+                Retry
+              </button>
+            </div>
+          )}
 
           {/* =================================================
               SUBJECT BANNER
           ================================================= */}
 
           <div className="subject-banner">
-
             <div className="subject-banner-icon">
               <GraduationCap size={18} />
             </div>
 
             <div>
-              <strong>{selectedSubject}</strong>
-
-              <span>
-                {data.code} • Subject-wise Analytics
-              </span>
+              <strong>{bannerTitle}</strong>
+              <span>{bannerSubtitle}</span>
             </div>
 
-            <div className="subject-banner-period">
-              {period}
-            </div>
-
+            <div className="subject-banner-period">{period}</div>
           </div>
 
           {/* =================================================
@@ -545,88 +449,71 @@ export default function Analytics() {
           ================================================= */}
 
           <section className="analytics-stats">
-
             <div className="analytics-stat-card">
-
               <div className="analytics-stat-icon purple">
                 <FolderOpen size={17} />
               </div>
 
               <div>
                 <span>Total Sessions Conducted</span>
-
-                <strong>
-                  {data.overview.sessions}
-                </strong>
-
+                <strong>{overview.sessions}</strong>
                 <small>
-                  +{data.overview.scheduledNextWeek}
-                  {" "}scheduled next week
+                  +{overview.scheduledNextWeek} scheduled next week
                 </small>
               </div>
-
             </div>
 
             <div className="analytics-stat-card">
-
               <div className="analytics-stat-icon teal">
                 <BarChart3 size={17} />
               </div>
 
               <div>
                 <span>Overall Average Score</span>
-
-                <strong>
-                  {data.overview.averageScore}%
-                </strong>
-
+                <strong>{overview.averageScore}%</strong>
                 <small>
-                  Syllabus standards met
+                  {overview.averageScore >= 50
+                    ? "Syllabus standards met"
+                    : overview.sessions === 0
+                    ? "Awaiting completed sessions"
+                    : "Below passing threshold"}
                 </small>
               </div>
-
             </div>
 
             <div className="analytics-stat-card">
-
               <div className="analytics-stat-icon green">
                 <TrendingUp size={17} />
               </div>
 
               <div>
                 <span>Student Pass Rate</span>
-
-                <strong>
-                  {data.overview.passRate}%
-                </strong>
-
+                <strong>{overview.passRate}%</strong>
                 <small>
-                  Highly standard oral delivery
+                  {overview.passRate >= 70
+                    ? "Standard oral delivery"
+                    : overview.sessions === 0
+                    ? "Awaiting evaluations"
+                    : "Requires review"}
                 </small>
               </div>
-
             </div>
 
             <div className="analytics-stat-card">
-
               <div className="analytics-stat-icon orange">
                 <Clock3 size={17} />
               </div>
 
               <div>
                 <span>Average Session Duration</span>
-
-                <strong>
-                  {data.overview.duration} min
-                </strong>
-
+                <strong>{overview.duration} min</strong>
                 <small>
-                  Optimized prompt timing
+                  {overview.duration > 0
+                    ? "Optimized prompt timing"
+                    : "No session logs"}
                 </small>
               </div>
-
             </div>
-
           </section>
 
           {/* =================================================
@@ -634,96 +521,67 @@ export default function Analytics() {
           ================================================= */}
 
           <section className="analytics-grid-top">
-
             {/* SCORE BY TOPIC */}
-
             <div className="analytics-card topic-card">
-
               <div className="analytics-card-header">
-
                 <div>
-                  <h2>
-                    Score Distribution by Topic
-                  </h2>
-
+                  <h2>Score Distribution by Topic</h2>
                   <p>
-                    Average student performance across
-                    {selectedSubject} topics.
+                    Average student performance across {bannerTitle} topics.
                   </p>
                 </div>
-
               </div>
 
               <div className="topic-list">
+                {topics.length > 0 ? (
+                  topics.map((topic) => (
+                    <div className="topic-row" key={topic.name}>
+                      <div className="topic-row-header">
+                        <span>{topic.name}</span>
+                        <strong>{topic.score}%</strong>
+                      </div>
 
-                {data.topics.map((topic) => (
-                  <div
-                    className="topic-row"
-                    key={topic.name}
-                  >
-
-                    <div className="topic-row-header">
-
-                      <span>
-                        {topic.name}
-                      </span>
-
-                      <strong>
-                        {topic.score}%
-                      </strong>
-
+                      <div className="topic-progress">
+                        <div
+                          className={`topic-progress-value ${
+                            topic.score >= 80
+                              ? "high"
+                              : topic.score >= 60
+                              ? "medium"
+                              : "low"
+                          }`}
+                          style={{
+                            width: `${Math.min(
+                              100,
+                              Math.max(0, topic.score)
+                            )}%`,
+                          }}
+                        />
+                      </div>
                     </div>
-
-                    <div className="topic-progress">
-
-                      <div
-                        className={`topic-progress-value ${
-                          topic.score >= 85
-                            ? "high"
-                            : topic.score >= 75
-                            ? "medium"
-                            : "low"
-                        }`}
-                        style={{
-                          width: `${topic.score}%`,
-                        }}
-                      />
-
-                    </div>
-
+                  ))
+                ) : (
+                  <div className="analytics-no-data-hint">
+                    No topic evaluation data recorded for completed sessions in
+                    this period.
                   </div>
-                ))}
-
+                )}
               </div>
-
             </div>
 
-            {/* TREND */}
-
+            {/* PERFORMANCE TREND */}
             <div className="analytics-card trend-card">
-
               <div className="analytics-card-header">
-
                 <div>
-                  <h2>
-                    Performance Trend Over Time
-                  </h2>
-
-                  <p>
-                    Average viva score by month.
-                  </p>
+                  <h2>Performance Trend Over Time</h2>
+                  <p>Average viva score progression.</p>
                 </div>
 
                 <LineChart size={17} />
-
               </div>
 
-              <TrendChart
-                values={data.trend}
-              />
-
+              <TrendChart trend={analyticsData?.trend} />
             </div>
-
           </section>
 
           {/* =================================================
@@ -731,123 +589,91 @@ export default function Analytics() {
           ================================================= */}
 
           <section className="analytics-grid-bottom">
-
-            {/* DIFFICULTY */}
-
+            {/* DIFFICULTY DISTRIBUTION */}
             <div className="analytics-card difficulty-card">
-
               <div className="analytics-card-header">
-
                 <div>
-                  <h2>
-                    Difficulty Distribution
-                  </h2>
-
-                  <p>
-                    Questions used during {selectedSubject}
-                    {" "}viva sessions.
-                  </p>
+                  <h2>Difficulty Distribution</h2>
+                  <p>Questions used during viva sessions.</p>
                 </div>
-
               </div>
 
-              <DifficultyChart
-                difficulty={data.difficulty}
-              />
-
+              <DifficultyChart difficulty={analyticsData?.difficulty} />
             </div>
 
-            {/* TOP STUDENTS */}
-
+            {/* TOP STUDENTS LEADERBOARD */}
             <div className="analytics-card students-performance-card">
-
               <div className="analytics-card-header">
-
                 <div>
-                  <h2>
-                    Top Performing Students
-                  </h2>
-
-                  <p>
-                    Highest average scores in this subject.
-                  </p>
+                  <h2>Top Performing Students</h2>
+                  <p>Highest average scores in this exam room / subject.</p>
                 </div>
 
                 <Users size={17} />
-
               </div>
 
               <div className="performance-table-wrapper">
-
-                <table className="performance-table">
-
-                  <thead>
-                    <tr>
-                      <th>Rank</th>
-                      <th>Name</th>
-                      <th>Average Score</th>
-                      <th>Sessions</th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-
-                    {data.students.map((student) => (
-                      <tr key={student.rank}>
-
-                        <td>
-                          <span className="rank">
-                            #{student.rank}
-                          </span>
-                        </td>
-
-                        <td>
-                          <div className="student-name">
-                            <div className="student-avatar">
-                              {student.name
-                                .split(" ")
-                                .map((name) =>
-                                  name[0]
-                                )
-                                .join("")
-                                .slice(0, 2)}
-                            </div>
-
-                            <span>
-                              {student.name}
-                            </span>
-                          </div>
-                        </td>
-
-                        <td>
-                          <strong className="student-score">
-                            {student.score}%
-                          </strong>
-                        </td>
-
-                        <td>
-                          <span className="session-count">
-                            {student.sessions}
-                          </span>
-                        </td>
-
+                {students.length > 0 ? (
+                  <table className="performance-table">
+                    <thead>
+                      <tr>
+                        <th>Rank</th>
+                        <th>Name</th>
+                        <th>Average Score</th>
+                        <th>Sessions</th>
                       </tr>
-                    ))}
+                    </thead>
 
-                  </tbody>
+                    <tbody>
+                      {students.map((student) => (
+                        <tr key={student.rank}>
+                          <td>
+                            <span className="rank">#{student.rank}</span>
+                          </td>
 
-                </table>
+                          <td>
+                            <div className="student-name">
+                              <div className="student-avatar">
+                                {student.name
+                                  ? student.name
+                                      .split(" ")
+                                      .filter(Boolean)
+                                      .map((name) => name[0])
+                                      .join("")
+                                      .slice(0, 2)
+                                      .toUpperCase()
+                                  : "ST"}
+                              </div>
 
+                              <span>{student.name}</span>
+                            </div>
+                          </td>
+
+                          <td>
+                            <strong className="student-score">
+                              {student.score}%
+                            </strong>
+                          </td>
+
+                          <td>
+                            <span className="session-count">
+                              {student.sessions}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div className="analytics-no-data-hint">
+                    No student viva evaluations completed in this period.
+                  </div>
+                )}
               </div>
-
             </div>
-
           </section>
-
         </main>
-
       </div>
-
     </div>
   );
 }

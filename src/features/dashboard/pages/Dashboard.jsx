@@ -41,13 +41,14 @@ export default function Dashboard() {
         const roomsCount = allRooms.length;
         const activeRoomsCount = activeRooms.length;
 
-        const sessionsCount = sessionsRes.data.success && sessionsRes.data.data ? sessionsRes.data.data.length : 0;
+        const allStudentSessions = sessionsRes.data.success && sessionsRes.data.data ? sessionsRes.data.data : [];
+        const inProgressCount = allStudentSessions.filter(s => s.status === 'IN_PROGRESS').length;
 
         const metrics = dashRes.data.success && dashRes.data.data.summary_metrics ? dashRes.data.data.summary_metrics : {};
         
         setStats({
-          totalSessions: roomsCount + sessionsCount,
-          activeStudents: metrics.total_students || 0,
+          totalSessions: roomsCount,
+          activeStudents: inProgressCount > 0 ? inProgressCount : (metrics.total_students || 0),
           averageScore: metrics.overall_average_score ? `${metrics.overall_average_score.toFixed(1)}%` : "0%",
           upcomingVivas: activeRoomsCount,
         });

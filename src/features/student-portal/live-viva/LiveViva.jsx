@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { AlertTriangle, ArrowRight, Clock3, Mic, ShieldAlert, Eye, Smartphone } from "lucide-react";
 import { useFaceProctoring } from "./hooks/useFaceProctoring";
 import { useObjectProctoring } from "./hooks/useObjectProctoring";
-import io from "socket.io-client";
+import { getSocket } from "../../../services/socket";
 import axios from "axios";
 import {
   endVivaSession,
@@ -13,7 +13,8 @@ import {
 } from "./api/liveVivaApi";
 import "../styles/live-viva.css";
 
-export default function LiveViva({ sessionId, name, rollNo }) {
+export default function LiveViva({ sessionId, name, rollNo, roomCode }) {
+  const [activeRoomCode, setActiveRoomCode] = useState(roomCode || "");
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const mediaRecorderRef = useRef(null);
@@ -55,6 +56,7 @@ export default function LiveViva({ sessionId, name, rollNo }) {
     if (socketRef.current && sessionId) {
       socketRef.current.emit("proctor:violation", {
         sessionId,
+        roomCode: activeRoomCode,
         type: violation.type,
         label: violation.label,
         durationMs: violation.durationMs,
@@ -83,6 +85,7 @@ export default function LiveViva({ sessionId, name, rollNo }) {
     if (socketRef.current && sessionId) {
       socketRef.current.emit("proctor:violation", {
         sessionId,
+        roomCode: activeRoomCode,
         type: "OBJECT_DETECTED",
         label: violation.label,
         objectName: violation.objectName,
@@ -118,6 +121,9 @@ export default function LiveViva({ sessionId, name, rollNo }) {
           setCurrentQuestionId(data.currentQuestion.id || null);
           setCurrentQuestionTopic(data.currentQuestion.topic || "General Topic");
           setSyllabusId(data.syllabusId || null);
+          if (data.roomCode) {
+            setActiveRoomCode(data.roomCode);
+          }
           
           if (data.timeLimitSec) {
             setSecondsLeft(Math.max(0, data.timeLimitSec - (data.elapsedTime || 0)));
@@ -126,20 +132,28 @@ export default function LiveViva({ sessionId, name, rollNo }) {
       }).catch(err => console.error("Failed to fetch session", err));
     }
 
-    socketRef.current = io("http://localhost:5000");
-    socketRef.current.on("audio:transcript", (data) => {
+    const socket = getSocket();
+    socketRef.current = socket;
+    if (activeRoomCode) {
+      socket.emit("room:join", { roomCode: activeRoomCode, role: "student" });
+    }
+
+    const handleTranscript = (data) => {
       if (mounted) {
         setTranscript(data.text);
         setAnswered(true);
       }
-    });
-    
-    socketRef.current.on("audio:error", (data) => {
+    };
+
+    const handleAudioError = (data) => {
       if (mounted) {
         setTranscript(`Error: ${data.error}. Please try again.`);
         setAnswered(false);
       }
-    });
+    };
+
+    socket.on("audio:transcript", handleTranscript);
+    socket.on("audio:error", handleAudioError);
 
     navigator.mediaDevices?.getUserMedia({ video: true, audio: true })
       .then((stream) => {
@@ -185,9 +199,78 @@ export default function LiveViva({ sessionId, name, rollNo }) {
       streamRef.current?.getTracks().forEach((track) => track.stop());
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
       if (audioContextRef.current) audioContextRef.current.close();
-      if (socketRef.current) socketRef.current.disconnect();
+      if (socket) {
+        if (activeRoomCode) socket.emit("room:leave", { roomCode: activeRoomCode });
+        socket.off("audio:transcript", handleTranscript);
+        socket.off("audio:error", handleAudioError);
+      }
+    };
+  }, [sessionId, activeRoomCode]);
+
+  const [isStreamingRequested, setIsStreamingRequested] = useState(false);
+
+  // Listen for supervisor on-demand stream requests
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket || !sessionId) return;
+
+    const handleStreamStart = (data) => {
+      if (data?.sessionId === sessionId) {
+        console.log(`[LiveViva] Supervisor started watching stream for session ${sessionId}`);
+        setIsStreamingRequested(true);
+      }
+    };
+
+    const handleStreamStop = (data) => {
+      if (data?.sessionId === sessionId) {
+        console.log(`[LiveViva] Supervisor closed stream for session ${sessionId}`);
+        setIsStreamingRequested(false);
+      }
+    };
+
+    socket.on("video:stream_start", handleStreamStart);
+    socket.on("video:stream_stop", handleStreamStop);
+
+    return () => {
+      socket.off("video:stream_start", handleStreamStart);
+      socket.off("video:stream_stop", handleStreamStop);
     };
   }, [sessionId]);
+
+  useEffect(() => {
+    if (socketRef.current && activeRoomCode) {
+      socketRef.current.emit("room:join", { roomCode: activeRoomCode, role: "student" });
+    }
+  }, [activeRoomCode]);
+
+  // On-Demand Video Frame Streaming (~1.33 FPS, 320x240 @ 0.6 JPEG, ~10KB)
+  // Conserves bandwidth by strictly running when a supervisor has opened this student's feed
+  useEffect(() => {
+    if (!isStreamingRequested || !videoRef.current || !socketRef.current || !sessionId || !activeRoomCode || ended || completed) return;
+
+    const intervalId = setInterval(() => {
+      if (!videoRef.current || videoRef.current.readyState < 2) return;
+
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = 320;
+        canvas.height = 240;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(videoRef.current, 0, 0, 320, 240);
+
+        const frame = canvas.toDataURL("image/jpeg", 0.6);
+        socketRef.current.emit("video:frame", {
+          sessionId,
+          roomCode: activeRoomCode,
+          frame,
+        });
+      } catch (err) {
+        // Suppress frame draw error if video was transitioning
+      }
+    }, 750);
+
+    return () => clearInterval(intervalId);
+  }, [isStreamingRequested, sessionId, activeRoomCode, ended, completed]);
 
   useEffect(() => {
     if (secondsLeft !== null && secondsLeft <= 0 && !ended && !completed && sessionId) {
@@ -311,7 +394,8 @@ export default function LiveViva({ sessionId, name, rollNo }) {
       if (data.timeLimitSec) setSecondsLeft(Math.max(0, data.timeLimitSec - (data.elapsedTime || 0)));
       setTranscript("");
     } catch (err) {
-      console.error(err);
+      console.error("Error skipping question:", err);
+      alert(err.response?.data?.error || err.message || "Failed to skip question. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -347,7 +431,8 @@ export default function LiveViva({ sessionId, name, rollNo }) {
       setRecording(false);
       setTranscript("");
     } catch (err) {
-      console.error(err);
+      console.error("Error submitting answer & moving to next question:", err);
+      alert(err.response?.data?.error || err.message || "Failed to submit and move to the next question. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -409,7 +494,14 @@ export default function LiveViva({ sessionId, name, rollNo }) {
           <section className={`webcam-card ${hasProhibitedItem ? "prohibited-alert" : ""}`}>
             <div className="webcam-card-header">
               <h2>Live Proctored Feed</h2>
-              <span className="webcam-card-live-dot"><i /> LIVE</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {isStreamingRequested && (
+                  <span style={{ fontSize: '9px', background: '#fee2e2', color: '#dc2626', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
+                    SUPERVISOR WATCHING
+                  </span>
+                )}
+                <span className="webcam-card-live-dot"><i /> LIVE</span>
+              </div>
             </div>
             <div className={`live-webcam ${hasProhibitedItem ? "alert-frame" : ""}`}>
               <video ref={videoRef} autoPlay muted playsInline />
