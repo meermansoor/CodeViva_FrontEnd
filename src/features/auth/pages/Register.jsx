@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
+import { api } from "../../../services/api";
+import { ENDPOINTS } from "../../../constants/endpoints";
 import AuthInput from "../components/AuthInput";
 import PasswordInput from "../components/PasswordInput";
 import AuthButton from "../components/AuthButton";
@@ -39,11 +40,15 @@ export default function Register({ onRegistered }) {
     }
 
     try {
-      const res = await axios.post("http://localhost:5000/api/auth/register", {
-        name: form.fullName,
-        email: form.email,
-        password: form.password
-      });
+      const res = await api.post(
+        ENDPOINTS.AUTH_REGISTER,
+        {
+          name: form.fullName,
+          email: form.email,
+          password: form.password,
+        },
+        { skipUnauthorizedHandler: true }
+      );
       if (res.data.success) {
         onRegistered?.();
         navigate("/login");

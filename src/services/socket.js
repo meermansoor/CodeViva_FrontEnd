@@ -1,5 +1,8 @@
 import { io } from "socket.io-client";
 
+import { SOCKET_URL } from "../config/env";
+import { getAuthToken } from "../utils/authSession";
+
 let socketInstance = null;
 
 /**
@@ -14,10 +17,9 @@ export const getSocket = (forceNew = false) => {
   }
 
   if (!socketInstance) {
-    const token = localStorage.getItem("teacherToken") || localStorage.getItem("studentToken");
-    const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
+    const token = getAuthToken();
 
-    socketInstance = io(backendUrl, {
+    socketInstance = io(SOCKET_URL, {
       auth: { token },
       transports: ["websocket", "polling"],
       reconnection: true,

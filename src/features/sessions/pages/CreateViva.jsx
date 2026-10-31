@@ -14,7 +14,9 @@ import {
   Users,
   X,
 } from "lucide-react";
-import axios from "axios";
+import { api, LONG_REQUEST_TIMEOUT_MS } from "../../../services/api";
+import { ENDPOINTS } from "../../../constants/endpoints";
+import { fileUrl } from "../../../config/env";
 import * as XLSX from "xlsx";
 
 import Sidebar from "../../dashboard/components/Sidebar";
@@ -59,8 +61,6 @@ export default function CreateViva() {
   const [difficultyFilter, setDifficultyFilter] = useState("All Difficulties");
   const [topicFilter, setTopicFilter] = useState("All Topics");
 
-  const API_BASE_URL = import.meta.env.VITE_RAG_API_URL || "http://192.168.100.100:8000";
-
   useEffect(() => {
     let interval;
     const isMissingData = questions.some(q => 
@@ -73,7 +73,7 @@ export default function CreateViva() {
     if (syllabusId && questions.length > 0 && isMissingData) {
       interval = setInterval(async () => {
         try {
-          const res = await axios.get(`http://localhost:5000/api/questions/syllabus/${syllabusId}`);
+          const res = await api.get(ENDPOINTS.QUESTIONS_SYLLABUS(syllabusId));
           if (res.data && res.data.data && res.data.data.questions) {
             setQuestions(prev => prev.map(q => {
               const matched = res.data.data.questions.find(apiQ => apiQ.id === q.id);
@@ -236,12 +236,8 @@ export default function CreateViva() {
     formData.append("numQuestions", questionCount);
 
     try {
-      const token = localStorage.getItem("teacherToken");
-      const res = await axios.post("http://localhost:5000/api/questions/generate", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-          Authorization: `Bearer ${token}`
-        }
+      const res = await api.post(ENDPOINTS.QUESTIONS_GENERATE, formData, {
+        timeout: LONG_REQUEST_TIMEOUT_MS,
       });
       if (res.data.success) {
         const bank = res.data.data;
@@ -468,14 +464,12 @@ export default function CreateViva() {
     }
 
     try {
-      const token = localStorage.getItem("teacherToken");
-      
       const durationMin = parseInt(settings.duration, 10) || 30;
       const questionsCount = parseInt(settings.questionsPerStudent, 10) || 5;
       const totalMarks = parseFloat(settings.totalMarks) || 15.0;
 
       // Synchronize fully-completed questions with DB before creating the room
-      await axios.put(`http://localhost:5000/api/questions/${questionBankId}`, {
+      await api.put(ENDPOINTS.QUESTION_BANK(questionBankId), {
         questions: questions.map(q => {
           const kws = (q.answer_keywords && q.answer_keywords.length > 0)
             ? q.answer_keywords
@@ -499,7 +493,7 @@ export default function CreateViva() {
         totalMarks: totalMarks
       });
 
-      const res = await axios.post("http://localhost:5000/api/teacher/exam-rooms", {
+      const res = await api.post(ENDPOINTS.TEACHER_EXAM_ROOMS, {
         questionBankId: questionBankId,
         allowedStudents: students.map(s => ({
           rollNo: s.rollNumber,
@@ -886,7 +880,7 @@ export default function CreateViva() {
                           
                           <div style={{ marginTop: '12px' }}>
                             {question.audio_file ? (
-                              <audio controls src={`http://localhost:5000/api/audio/file/${syllabusId}/${question.audio_file}`} style={{ height: '32px' }} />
+                              <audio controls src={fileUrl(ENDPOINTS.AUDIO_FILE(syllabusId, question.audio_file))} style={{ height: '32px' }} />
                             ) : (
                               <span style={{ fontSize: '12px', color: '#888', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                 <RefreshCw size={12} className="spin" />

@@ -16,7 +16,8 @@ import {
   Plus,
   BookOpenCheck,
 } from "lucide-react";
-import axios from "axios";
+import { api } from "../../../services/api";
+import { ENDPOINTS } from "../../../constants/endpoints";
 
 export default function AllSessionsModal({ isOpen, onClose, onRefreshDashboard }) {
   const navigate = useNavigate();
@@ -34,12 +35,7 @@ export default function AllSessionsModal({ isOpen, onClose, onRefreshDashboard }
     else setLoading(true);
 
     try {
-      const token = localStorage.getItem("teacherToken");
-      if (!token) return;
-
-      const res = await axios.get("http://localhost:5000/api/teacher/exam-rooms", {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await api.get(ENDPOINTS.TEACHER_EXAM_ROOMS);
 
       if (res.data.success && res.data.data) {
         setSessions(res.data.data);
@@ -88,10 +84,7 @@ export default function AllSessionsModal({ isOpen, onClose, onRefreshDashboard }
 
     try {
       setActionLoadingId(room._id);
-      const token = localStorage.getItem("teacherToken");
-      await axios.put(`http://localhost:5000/api/teacher/exam-rooms/${room._id}/end`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await api.put(ENDPOINTS.END_EXAM_ROOM(room._id), {});
 
       // Update state locally
       setSessions((prev) =>

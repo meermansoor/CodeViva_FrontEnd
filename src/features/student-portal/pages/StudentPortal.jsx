@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import axios from "axios";
+import { api } from "../../../services/api";
+import { ENDPOINTS } from "../../../constants/endpoints";
+import { SOCKET_EVENTS } from "../../../constants/socketEvents";
+import { ROUTES } from "../../../constants/routes";
 import { getSocket } from "../../../services/socket";
 import IdentityVerification from "../identity/IdentityVerification";
 import EnvironmentCheck from "../environment/EnvironmentCheck";
@@ -31,7 +34,10 @@ export default function StudentPortal() {
       setIsValidating(false);
       return;
     }
-    axios.get(`http://localhost:5000/api/viva/room/${roomCode}?rollNo=${rollNo}`)
+    api.get(ENDPOINTS.VIVA_ROOM(roomCode), {
+      params: { rollNo },
+      skipUnauthorizedHandler: true,
+    })
       .then(res => {
         if (res.data.valid) {
           setIsRoomValid(true);
@@ -49,7 +55,7 @@ export default function StudentPortal() {
 
     const socket = getSocket();
     if (roomCode) {
-      socket.emit("room:join", { roomCode, role: "student" });
+      socket.emit(SOCKET_EVENTS.ROOM_JOIN, { roomCode, role: "student" });
     }
 
     const handleRoomClosed = (data) => {
@@ -57,27 +63,29 @@ export default function StudentPortal() {
         setIsRoomValid(false);
         setSessionError("The teacher has ended the exam room. Your session was terminated.");
         // Redirect them out completely
-        window.location.href = "/register";
+        window.location.href = ROUTES.REGISTER;
       }
     };
 
-    socket.on('ROOM_CLOSED', handleRoomClosed);
-    socket.on('room:closed', handleRoomClosed);
+    socket.on(SOCKET_EVENTS.LEGACY_ROOM_CLOSED, handleRoomClosed);
+    socket.on(SOCKET_EVENTS.ROOM_CLOSED, handleRoomClosed);
 
     return () => {
       if (roomCode) {
-        socket.emit("room:leave", { roomCode });
+        socket.emit(SOCKET_EVENTS.ROOM_LEAVE, { roomCode });
       }
-      socket.off('ROOM_CLOSED', handleRoomClosed);
-      socket.off('room:closed', handleRoomClosed);
+      socket.off(SOCKET_EVENTS.LEGACY_ROOM_CLOSED, handleRoomClosed);
+      socket.off(SOCKET_EVENTS.ROOM_CLOSED, handleRoomClosed);
     };
   }, [roomCode]);
 
   const handleStartViva = async () => {
     try {
-      const res = await axios.post("http://localhost:5000/api/viva/session/start", {
-        roomCode, rollNo, name
-      });
+      const res = await api.post(
+        ENDPOINTS.VIVA_SESSION_START,
+        { roomCode, rollNo, name },
+        { skipUnauthorizedHandler: true }
+      );
       if (res.data.success) {
         setSessionId(res.data.data.sessionId);
         setStep(4);
@@ -97,7 +105,7 @@ export default function StudentPortal() {
         <div style={{ padding: '2rem', textAlign: 'center', color: 'red' }}>
           <h2>Access Denied</h2>
           <p>{sessionError}</p>
-          <a href="/register">Go back to Join page</a>
+          <a href={ROUTES.REGISTER}>Go back to Join page</a>
         </div>
       </main>
     );

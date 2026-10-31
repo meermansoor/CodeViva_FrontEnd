@@ -55,7 +55,7 @@ export function useFaceProctoring(videoRef, options = {}) {
 
         // Fetch vision WASM files from Google CDN
         const fileset = await FilesetResolver.forVisionTasks(
-          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm" // literal-ok
         );
 
         if (!isMounted) return;
@@ -64,7 +64,7 @@ export function useFaceProctoring(videoRef, options = {}) {
         try {
           landmarkerRef.current = await FaceLandmarker.createFromOptions(fileset, {
             baseOptions: {
-              modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+              modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task", // literal-ok
               delegate: "GPU",
             },
             runningMode: "VIDEO",
@@ -76,7 +76,7 @@ export function useFaceProctoring(videoRef, options = {}) {
           console.warn("[MediaPipe] GPU delegate failed, falling back to CPU:", gpuErr);
           landmarkerRef.current = await FaceLandmarker.createFromOptions(fileset, {
             baseOptions: {
-              modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+              modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task", // literal-ok
               delegate: "CPU",
             },
             runningMode: "VIDEO",
