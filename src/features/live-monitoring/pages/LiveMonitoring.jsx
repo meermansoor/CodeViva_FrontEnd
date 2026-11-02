@@ -26,6 +26,42 @@ import {
 import "../styles/live-monitoring.css";
 
 /* =========================================================
+   HELPERS FOR VIVA SESSION TIMING
+========================================================= */
+const getRoomStartTimestamp = (room) => {
+  if (!room) return null;
+  const raw = room.startedAt || room.startTime || room.createdAt;
+  if (!raw) return null;
+  const time = new Date(raw).getTime();
+  return isNaN(time) ? null : time;
+};
+
+const getRoomEndTimestamp = (room) => {
+  if (!room) return null;
+  const raw = room.endedAt || room.endTime || room.updatedAt;
+  if (!raw) return null;
+  const time = new Date(raw).getTime();
+  return isNaN(time) ? null : time;
+};
+
+const computeElapsedSeconds = (room, isEnded) => {
+  if (!room) return 0;
+  const startMs = getRoomStartTimestamp(room);
+  if (!startMs) return 0;
+
+  if (isEnded || !room.isActive) {
+    const endMs = getRoomEndTimestamp(room);
+    if (endMs && endMs >= startMs) {
+      return Math.floor((endMs - startMs) / 1000);
+    }
+    return 0;
+  }
+
+  const nowMs = Date.now();
+  return Math.max(0, Math.floor((nowMs - startMs) / 1000));
+};
+
+/* =========================================================
    LIVE MONITORING PAGE
 ========================================================= */
 
@@ -219,12 +255,37 @@ export default function LiveMonitoring() {
       });
     };
 
+    const handleRoomClosed = (data) => {
+      if (!data?.roomCode) return;
+      const closedTimestamp = new Date().toISOString();
+      setRooms((prevRooms) =>
+        prevRooms.map((room) =>
+          room.roomCode === data.roomCode
+            ? { ...room, isActive: false, updatedAt: closedTimestamp }
+            : room
+        )
+      );
+      setSelectedRoom((prev) => {
+        if (prev && prev.roomCode === data.roomCode) {
+          return { ...prev, isActive: false, updatedAt: closedTimestamp };
+        }
+        return prev;
+      });
+      if (selectedRoom?.roomCode === data.roomCode) {
+        setSessionEnded(true);
+      }
+    };
+
     socket.on(SOCKET_EVENTS.LEGACY_TEACHER_LIVE_UPDATE, handleTeacherUpdate);
     socket.on(SOCKET_EVENTS.TEACHER_LIVE_UPDATE, handleTeacherUpdate);
+    socket.on(SOCKET_EVENTS.ROOM_CLOSED, handleRoomClosed);
+    socket.on(SOCKET_EVENTS.LEGACY_ROOM_CLOSED, handleRoomClosed);
 
     return () => {
       socket.off(SOCKET_EVENTS.LEGACY_TEACHER_LIVE_UPDATE, handleTeacherUpdate);
       socket.off(SOCKET_EVENTS.TEACHER_LIVE_UPDATE, handleTeacherUpdate);
+      socket.off(SOCKET_EVENTS.ROOM_CLOSED, handleRoomClosed);
+      socket.off(SOCKET_EVENTS.LEGACY_ROOM_CLOSED, handleRoomClosed);
     };
   }, [selectedRoom]);
 
@@ -471,15 +532,25 @@ export default function LiveMonitoring() {
   }, [rooms, selectedRoom]);
 
   /* =======================================================
-     LIVE TIMER
+     LIVE TIMER (ELAPSED TIME SINCE VIVA SESSION CREATED/STARTED)
   ======================================================== */
   useEffect(() => {
-    if (sessionEnded) return;
+    if (!selectedRoom) {
+      setElapsedSeconds(0);
+      return;
+    }
+
+    const isEnded = sessionEnded || !selectedRoom.isActive;
+    setElapsedSeconds(computeElapsedSeconds(selectedRoom, isEnded));
+
+    if (isEnded) return;
+
     const timer = setInterval(() => {
-      setElapsedSeconds((previous) => previous + 1);
+      setElapsedSeconds(computeElapsedSeconds(selectedRoom, false));
     }, 1000);
+
     return () => clearInterval(timer);
-  }, [sessionEnded]);
+  }, [selectedRoom, sessionEnded]);
 
   const formattedElapsedTime = useMemo(() => {
     const hours = Math.floor(elapsedSeconds / 3600);
@@ -499,7 +570,14 @@ export default function LiveMonitoring() {
     try {
       const res = await api.put(ENDPOINTS.END_EXAM_ROOM(selectedRoom._id), {});
       if (res.data.success) {
+        const endedTimestamp = new Date().toISOString();
         setSessionEnded(true);
+        setSelectedRoom((prev) => (prev ? { ...prev, isActive: false, updatedAt: endedTimestamp } : null));
+        setRooms((prevRooms) =>
+          prevRooms.map((r) =>
+            r._id === selectedRoom._id ? { ...r, isActive: false, updatedAt: endedTimestamp } : r
+          )
+        );
       }
     } catch (err) {
       console.error("Error ending room:", err);
