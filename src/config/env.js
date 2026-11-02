@@ -1,6 +1,6 @@
 const env = import.meta.env;
 
-const trimSlash = (s) => (s ? s.replace(/[/]+$/, '') : s);
+const trimSlash = (s) => (s ? s.trim().replace(/[/]+$/, '') : s);
 
 function resolveBackendUrl() {
   const value = env.VITE_BACKEND_URL;
