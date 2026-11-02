@@ -71,7 +71,7 @@ export default function LiveMonitoring() {
   const [rooms, setRooms] = useState([]);
   const [selectedRoom, setSelectedRoom] = useState(null);
   const [students, setStudents] = useState([]);
-  
+
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [sessionEnded, setSessionEnded] = useState(false);
   const [enlargedStudent, setEnlargedStudent] = useState(null);
@@ -195,61 +195,61 @@ export default function LiveMonitoring() {
           }
 
           let newMapped = [...room.mappedStudents];
-          
+
           if (data.type === LIVE_UPDATE_TYPE.SESSION_STARTED) {
-             const waitIdx = newMapped.findIndex(s => s.rollNo === data.studentInfo?.rollNo && s.status === "Waiting");
-             if (waitIdx !== -1) {
-               newMapped[waitIdx] = {
-                 ...newMapped[waitIdx],
-                 id: data.sessionId,
-                 status: "In Progress",
-                 question: "Active",
-                 remaining: "Just started"
-               };
-             } else {
-               const existingIdx = newMapped.findIndex(s => s.rollNo === data.studentInfo?.rollNo);
-               const newCard = {
-                 id: data.sessionId,
-                 name: data.studentInfo?.name || "Unknown",
-                 rollNo: data.studentInfo?.rollNo || "",
-                 status: "In Progress",
-                 question: "Active",
-                 remaining: "Just started",
-                 risk: 0,
-                 avatar: (data.studentInfo?.name || "ST").substring(0, 2).toUpperCase()
-               };
-               if (existingIdx !== -1) {
-                 newMapped[existingIdx] = newCard;
-               } else {
-                 newMapped.unshift(newCard);
-               }
-             }
+            const waitIdx = newMapped.findIndex(s => s.rollNo === data.studentInfo?.rollNo && s.status === "Waiting");
+            if (waitIdx !== -1) {
+              newMapped[waitIdx] = {
+                ...newMapped[waitIdx],
+                id: data.sessionId,
+                status: "In Progress",
+                question: "Active",
+                remaining: "Just started"
+              };
+            } else {
+              const existingIdx = newMapped.findIndex(s => s.rollNo === data.studentInfo?.rollNo);
+              const newCard = {
+                id: data.sessionId,
+                name: data.studentInfo?.name || "Unknown",
+                rollNo: data.studentInfo?.rollNo || "",
+                status: "In Progress",
+                question: "Active",
+                remaining: "Just started",
+                risk: 0,
+                avatar: (data.studentInfo?.name || "ST").substring(0, 2).toUpperCase()
+              };
+              if (existingIdx !== -1) {
+                newMapped[existingIdx] = newCard;
+              } else {
+                newMapped.unshift(newCard);
+              }
+            }
           } else if (data.type === LIVE_UPDATE_TYPE.SESSION_UPDATED) {
-             const idx = newMapped.findIndex(s => s.id === data.sessionId || s.rollNo === data.studentInfo?.rollNo);
-             if (idx !== -1) {
-               const curr = data.sessionData?.currentQuestion;
-               if (curr) {
-                 newMapped[idx].question = `Q${curr?.index + 1}/${curr?.total}`;
-               }
-               const scoreDisplay = data.currentScore !== undefined ? ` • Score: ${data.currentScore}` : '';
-               newMapped[idx].remaining = `${data.sessionData?.elapsedTime || 0}s${scoreDisplay}`;
-               newMapped[idx].hasFlaggedReview = data.hasFlaggedReview || false;
-               newMapped[idx].currentScore = data.currentScore || 0;
-             }
+            const idx = newMapped.findIndex(s => s.id === data.sessionId || s.rollNo === data.studentInfo?.rollNo);
+            if (idx !== -1) {
+              const curr = data.sessionData?.currentQuestion;
+              if (curr) {
+                newMapped[idx].question = `Q${curr?.index + 1}/${curr?.total}`;
+              }
+              const scoreDisplay = data.currentScore !== undefined ? ` • Score: ${data.currentScore}` : '';
+              newMapped[idx].remaining = `${data.sessionData?.elapsedTime || 0}s${scoreDisplay}`;
+              newMapped[idx].hasFlaggedReview = data.hasFlaggedReview || false;
+              newMapped[idx].currentScore = data.currentScore || 0;
+            }
           } else if (data.type === LIVE_UPDATE_TYPE.SESSION_COMPLETED) {
-             const idx = newMapped.findIndex(s => s.id === data.sessionId || s.rollNo === data.studentInfo?.rollNo);
-             if (idx !== -1) {
-               newMapped[idx].status = "Completed";
-               newMapped[idx].question = "Finished";
-               newMapped[idx].remaining = `Score: ${data.totalScore}`;
-             }
+            const idx = newMapped.findIndex(s => s.id === data.sessionId || s.rollNo === data.studentInfo?.rollNo);
+            if (idx !== -1) {
+              newMapped[idx].status = "Completed";
+              newMapped[idx].question = "Finished";
+              newMapped[idx].remaining = `Score: ${data.totalScore}`;
+            }
           } else if (data.type === LIVE_UPDATE_TYPE.PROCTOR_ALERT) {
-             const idx = newMapped.findIndex(s => s.id === data.sessionId || s.rollNo === data.studentInfo?.rollNo);
-             if (idx !== -1) {
-               newMapped[idx].risk = data.cheatingProbability;
-             }
+            const idx = newMapped.findIndex(s => s.id === data.sessionId || s.rollNo === data.studentInfo?.rollNo);
+            if (idx !== -1) {
+              newMapped[idx].risk = data.cheatingProbability;
+            }
           }
-          
+
           return { ...room, mappedStudents: newMapped };
         });
       });
@@ -553,10 +553,11 @@ export default function LiveMonitoring() {
   }, [selectedRoom, sessionEnded]);
 
   const formattedElapsedTime = useMemo(() => {
-    const hours = Math.floor(elapsedSeconds / 3600);
+    const days = Math.floor(elapsedSeconds / (86400))
+    const hours = Math.floor((elapsedSeconds % 86400) / 3600);
     const minutes = Math.floor((elapsedSeconds % 3600) / 60);
     const seconds = elapsedSeconds % 60;
-    return `${String(hours).padStart(2, "0")}h : ${String(minutes).padStart(2, "0")}m : ${String(seconds).padStart(2, "0")}s`;
+    return `${String(days).padStart(2, "0")}d : ${String(hours).padStart(2, "0")}h : ${String(minutes).padStart(2, "0")}m : ${String(seconds).padStart(2, "0")}s`;
   }, [elapsedSeconds]);
 
   /* =======================================================
@@ -566,7 +567,7 @@ export default function LiveMonitoring() {
     if (!selectedRoom) return;
     const confirmed = window.confirm("Are you sure you want to end this exam room? New students will be blocked from joining.");
     if (!confirmed) return;
-    
+
     try {
       const res = await api.put(ENDPOINTS.END_EXAM_ROOM(selectedRoom._id), {});
       if (res.data.success) {
@@ -627,10 +628,10 @@ export default function LiveMonitoring() {
           <h1>
             Live Monitoring — {selectedRoom?.questionBankId?.title || selectedRoom?.courseDetails?.courseName || "No Room Selected"}
           </h1>
-          
-          <span 
-            className="live-badge" 
-            style={{ 
+
+          <span
+            className="live-badge"
+            style={{
               backgroundColor: selectedRoom?.isActive ? '#e6f8f1' : '#f1f5f9',
               color: selectedRoom?.isActive ? '#0f766e' : '#64748b',
               border: `1px solid ${selectedRoom?.isActive ? '#a7f3d0' : '#cbd5e1'}`
@@ -693,9 +694,9 @@ export default function LiveMonitoring() {
               Ended ({rooms.filter(r => !r.isActive).length})
             </button>
           </div>
-          
+
           {filteredRooms.length > 0 && (
-            <select 
+            <select
               style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', backgroundColor: '#fff', fontSize: '12px', fontWeight: 600, color: '#1e293b', cursor: 'pointer' }}
               value={selectedRoom?._id || ''}
               onChange={(e) => {
@@ -777,7 +778,7 @@ export default function LiveMonitoring() {
                   </div>
                 </div>
 
-                <div 
+                <div
                   className="student-video-container on-demand"
                   onClick={() => handleOpenLiveStream(student)}
                   title="Click to stream live video"

@@ -29,8 +29,8 @@ dist-ssr/
 .env.local
 .env.*.local
 !.env.example
-!.env.development
-!.env.production
+.env.development
+.env.production
 
 # Cache directories
 .eslintcache
