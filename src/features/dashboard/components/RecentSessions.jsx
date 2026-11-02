@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
-import axios from "axios";
+import { api } from "../../../services/api";
+import { ENDPOINTS } from "../../../constants/endpoints";
 import { ArrowUpRight, Search, X, Copy, Check, Radio, BarChart3 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import StatusBadge from "./StatusBadge";
@@ -16,12 +17,7 @@ export default function RecentSessions() {
 
   const fetchSessions = useCallback(async () => {
     try {
-      const token = localStorage.getItem("teacherToken");
-      if (!token) return;
-
-      const roomsRes = await axios.get("http://localhost:5000/api/teacher/exam-rooms", {
-        headers: { Authorization: `Bearer ${token}` }
-      }).catch(() => ({ data: { success: false, data: [] } }));
+      const roomsRes = await api.get(ENDPOINTS.TEACHER_EXAM_ROOMS).catch(() => ({ data: { success: false, data: [] } }));
 
       if (roomsRes.data.success && roomsRes.data.data) {
         const mapped = roomsRes.data.data.map(room => {

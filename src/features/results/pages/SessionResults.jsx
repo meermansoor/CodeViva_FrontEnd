@@ -1,7 +1,8 @@
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useLocation } from "react-router-dom";
-import axios from "axios";
+import { api } from "../../../services/api";
+import { ENDPOINTS } from "../../../constants/endpoints";
 import {
   Award,
   Download,
@@ -49,11 +50,7 @@ export default function SessionResults() {
   useEffect(() => {
     const fetchRooms = async () => {
       try {
-        const token = localStorage.getItem("teacherToken");
-        if (!token) return;
-        const res = await axios.get("http://localhost:5000/api/teacher/exam-rooms", {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const res = await api.get(ENDPOINTS.TEACHER_EXAM_ROOMS);
         if (res.data.success && res.data.data) {
           const rooms = res.data.data;
           setExamRooms(rooms);
@@ -75,9 +72,8 @@ export default function SessionResults() {
     if (!selectedRoomId) return;
     setLoading(true);
     try {
-      const token = localStorage.getItem("teacherToken");
-      const res = await axios.get(`http://localhost:5000/api/teacher/dashboard?examRoomId=${selectedRoomId}`, {
-        headers: { Authorization: `Bearer ${token}` }
+      const res = await api.get(ENDPOINTS.TEACHER_DASHBOARD, {
+        params: { examRoomId: selectedRoomId },
       });
       if (res.data.success && res.data.data) {
         setDashboardData(res.data.data);
@@ -162,9 +158,8 @@ export default function SessionResults() {
   const handleExport = async () => {
     if (!currentSubject) return;
     try {
-      const token = localStorage.getItem("teacherToken");
-      const res = await axios.get(`http://localhost:5000/api/teacher/export/excel?examRoomId=${currentSubject.id}`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const res = await api.get(ENDPOINTS.TEACHER_EXPORT_EXCEL, {
+        params: { examRoomId: currentSubject.id },
         responseType: "blob",
       });
       const url = window.URL.createObjectURL(new Blob([res.data]));
@@ -190,10 +185,7 @@ export default function SessionResults() {
     if (student.session_id) {
       setLoadingDetails(true);
       try {
-        const token = localStorage.getItem("teacherToken");
-        const res = await axios.get(`http://localhost:5000/api/teacher/session/${student.session_id}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const res = await api.get(ENDPOINTS.TEACHER_SESSION(student.session_id));
         if (res.data.success && res.data.data) {
           setSessionDetails(res.data.data);
           const initialScores = {};
@@ -242,11 +234,9 @@ export default function SessionResults() {
 
     setSavingIndex(qIndex);
     try {
-      const token = localStorage.getItem("teacherToken");
-      const res = await axios.put(
-        `http://localhost:5000/api/teacher/session/${selectedStudent.session_id}/answer/${qIndex}`,
-        { score: parseFloat(scoreVal), teacherNotes: editingNotes[qIndex] || '' },
-        { headers: { Authorization: `Bearer ${token}` } }
+      const res = await api.put(
+        ENDPOINTS.TEACHER_SESSION_ANSWER(selectedStudent.session_id, qIndex),
+        { score: parseFloat(scoreVal), teacherNotes: editingNotes[qIndex] || '' }
       );
       if (res.data.success) {
         setSaveSuccess(`Score for Q${qIndex + 1} updated to ${res.data.data.score}!`);

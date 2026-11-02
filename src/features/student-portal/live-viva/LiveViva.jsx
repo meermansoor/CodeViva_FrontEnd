@@ -6,7 +6,11 @@ import { AlertTriangle, ArrowRight, Clock3, Mic, ShieldAlert, Eye, Smartphone } 
 import { useFaceProctoring } from "./hooks/useFaceProctoring";
 import { useObjectProctoring } from "./hooks/useObjectProctoring";
 import { getSocket } from "../../../services/socket";
-import axios from "axios";
+import { getWebRTCConfig } from "../../../services/webrtcConfig";
+import { api } from "../../../services/api";
+import { ENDPOINTS } from "../../../constants/endpoints";
+import { SOCKET_EVENTS } from "../../../constants/socketEvents";
+import { fileUrl } from "../../../config/env";
 import {
   endVivaSession,
   recordTabSwitch,
@@ -22,6 +26,9 @@ export default function LiveViva({ sessionId, name, rollNo, roomCode }) {
   const analyserRef = useRef(null);
   const animationFrameRef = useRef(null);
   const socketRef = useRef(null);
+  const peerConnectionRef = useRef(null);
+  const pendingCandidatesRef = useRef([]);
+  const [isSupervisorWatching, setIsSupervisorWatching] = useState(false);
   
   const [audioData, setAudioData] = useState(new Array(22).fill(12));
   const [questionNumber, setQuestionNumber] = useState(1);
@@ -31,8 +38,6 @@ export default function LiveViva({ sessionId, name, rollNo, roomCode }) {
   const [currentQuestionId, setCurrentQuestionId] = useState(null);
   const [currentQuestionTopic, setCurrentQuestionTopic] = useState("General");
   const [syllabusId, setSyllabusId] = useState(null);
-  
-  const API_BASE_URL = import.meta.env.VITE_RAG_API_URL || "http://192.168.100.100:8000";
   
   const [secondsLeft, setSecondsLeft] = useState(null);
   const [recording, setRecording] = useState(false);
@@ -54,7 +59,7 @@ export default function LiveViva({ sessionId, name, rollNo, roomCode }) {
     if (ended || completed) return;
 
     if (socketRef.current && sessionId) {
-      socketRef.current.emit("proctor:violation", {
+      socketRef.current.emit(SOCKET_EVENTS.PROCTOR_VIOLATION, {
         sessionId,
         roomCode: activeRoomCode,
         type: violation.type,
@@ -69,7 +74,7 @@ export default function LiveViva({ sessionId, name, rollNo, roomCode }) {
     setTimeout(() => {
       setProctorNotice(null);
     }, 4500);
-  }, [ended, completed, sessionId]);
+  }, [ended, completed, sessionId, activeRoomCode]);
 
   const { proctorStatus, proctorLabel, faceCount, gazeState } = useFaceProctoring(videoRef, {
     onViolation: handleProctorViolation,
@@ -83,7 +88,7 @@ export default function LiveViva({ sessionId, name, rollNo, roomCode }) {
     if (ended || completed) return;
 
     if (socketRef.current && sessionId) {
-      socketRef.current.emit("proctor:violation", {
+      socketRef.current.emit(SOCKET_EVENTS.PROCTOR_VIOLATION, {
         sessionId,
         roomCode: activeRoomCode,
         type: "OBJECT_DETECTED",
@@ -111,7 +116,7 @@ export default function LiveViva({ sessionId, name, rollNo, roomCode }) {
     let mounted = true;
 
     if (sessionId) {
-      axios.get(`http://localhost:5000/api/viva/session/${sessionId}`).then(res => {
+      api.get(ENDPOINTS.VIVA_SESSION(sessionId)).then(res => {
         if (mounted && res.data.success) {
           const data = res.data.data;
           setQuestionNumber(data.currentQuestion.index + 1);
@@ -135,7 +140,7 @@ export default function LiveViva({ sessionId, name, rollNo, roomCode }) {
     const socket = getSocket();
     socketRef.current = socket;
     if (activeRoomCode) {
-      socket.emit("room:join", { roomCode: activeRoomCode, role: "student" });
+      socket.emit(SOCKET_EVENTS.ROOM_JOIN, { roomCode: activeRoomCode, role: "student" });
     }
 
     const handleTranscript = (data) => {
@@ -199,78 +204,155 @@ export default function LiveViva({ sessionId, name, rollNo, roomCode }) {
       streamRef.current?.getTracks().forEach((track) => track.stop());
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
       if (audioContextRef.current) audioContextRef.current.close();
+      if (peerConnectionRef.current) {
+        peerConnectionRef.current.close();
+        peerConnectionRef.current = null;
+      }
+      pendingCandidatesRef.current = [];
       if (socket) {
-        if (activeRoomCode) socket.emit("room:leave", { roomCode: activeRoomCode });
-        socket.off("audio:transcript", handleTranscript);
-        socket.off("audio:error", handleAudioError);
+        if (activeRoomCode) socket.emit(SOCKET_EVENTS.ROOM_LEAVE, { roomCode: activeRoomCode });
+        socket.off(SOCKET_EVENTS.AUDIO_TRANSCRIPT, handleTranscript);
+        socket.off(SOCKET_EVENTS.AUDIO_ERROR, handleAudioError);
       }
     };
   }, [sessionId, activeRoomCode]);
 
-  const [isStreamingRequested, setIsStreamingRequested] = useState(false);
-
-  // Listen for supervisor on-demand stream requests
-  useEffect(() => {
-    const socket = socketRef.current;
-    if (!socket || !sessionId) return;
-
-    const handleStreamStart = (data) => {
-      if (data?.sessionId === sessionId) {
-        console.log(`[LiveViva] Supervisor started watching stream for session ${sessionId}`);
-        setIsStreamingRequested(true);
-      }
-    };
-
-    const handleStreamStop = (data) => {
-      if (data?.sessionId === sessionId) {
-        console.log(`[LiveViva] Supervisor closed stream for session ${sessionId}`);
-        setIsStreamingRequested(false);
-      }
-    };
-
-    socket.on("video:stream_start", handleStreamStart);
-    socket.on("video:stream_stop", handleStreamStop);
-
-    return () => {
-      socket.off("video:stream_start", handleStreamStart);
-      socket.off("video:stream_stop", handleStreamStop);
-    };
-  }, [sessionId]);
-
   useEffect(() => {
     if (socketRef.current && activeRoomCode) {
-      socketRef.current.emit("room:join", { roomCode: activeRoomCode, role: "student" });
+      socketRef.current.emit(SOCKET_EVENTS.ROOM_JOIN, { roomCode: activeRoomCode, role: "student" });
     }
   }, [activeRoomCode]);
 
-  // On-Demand Video Frame Streaming (~1.33 FPS, 320x240 @ 0.6 JPEG, ~10KB)
-  // Conserves bandwidth by strictly running when a supervisor has opened this student's feed
+  // WebRTC Native P2P Video Streaming: Listen for Supervisor On-Demand View Requests
   useEffect(() => {
-    if (!isStreamingRequested || !videoRef.current || !socketRef.current || !sessionId || !activeRoomCode || ended || completed) return;
+    const socket = socketRef.current || getSocket();
+    if (!sessionId) return;
 
-    const intervalId = setInterval(() => {
-      if (!videoRef.current || videoRef.current.readyState < 2) return;
+    const handleWebRTCInit = async (data) => {
+      const isSessionMatch = sessionId && String(data?.targetStudentSessionId) === String(sessionId);
+      const isRollMatch = rollNo && data?.targetRollNo && String(data?.targetRollNo).toLowerCase() === String(rollNo).toLowerCase();
+
+      if (!isSessionMatch && !isRollMatch) return;
+      const teacherSocketId = data.teacherSocketId;
+      if (!teacherSocketId) return;
+
+      console.log(`[WebRTC Student] Initiating P2P connection to supervisor: ${teacherSocketId}`);
 
       try {
-        const canvas = document.createElement("canvas");
-        canvas.width = 320;
-        canvas.height = 240;
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(videoRef.current, 0, 0, 320, 240);
+        if (peerConnectionRef.current) {
+          peerConnectionRef.current.close();
+          peerConnectionRef.current = null;
+        }
+        pendingCandidatesRef.current = [];
 
-        const frame = canvas.toDataURL("image/jpeg", 0.6);
-        socketRef.current.emit("video:frame", {
-          sessionId,
-          roomCode: activeRoomCode,
-          frame,
+        const pc = new RTCPeerConnection(getWebRTCConfig());
+        peerConnectionRef.current = pc;
+
+        // Attach local webcam video and microphone audio tracks
+        const activeStream = streamRef.current || (videoRef.current && videoRef.current.srcObject);
+        if (activeStream && activeStream.getTracks) {
+          activeStream.getTracks().forEach((track) => {
+            pc.addTrack(track, activeStream);
+          });
+        }
+
+        // Emit local ICE candidates directly to teacher
+        pc.onicecandidate = (event) => {
+          if (event.candidate) {
+            socket.emit(SOCKET_EVENTS.WEBRTC_ICE_CANDIDATE, {
+              targetSocketId: teacherSocketId,
+              candidate: event.candidate,
+            });
+          }
+        };
+
+        pc.onconnectionstatechange = () => {
+          console.log(`[WebRTC Student] PeerConnection state: ${pc.connectionState}`);
+          if (pc.connectionState === "connected") {
+            setIsSupervisorWatching(true);
+          } else if (pc.connectionState === "disconnected" || pc.connectionState === "failed" || pc.connectionState === "closed") {
+            setIsSupervisorWatching(false);
+          }
+        };
+
+        // Create and set local SDP Offer
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+
+        socket.emit(SOCKET_EVENTS.WEBRTC_OFFER, {
+          teacherSocketId,
+          offer,
+          studentSessionId: sessionId,
+          rollNo: rollNo,
         });
       } catch (err) {
-        // Suppress frame draw error if video was transitioning
+        console.error("[WebRTC Student] Failed creating WebRTC offer:", err);
       }
-    }, 750);
+    };
 
-    return () => clearInterval(intervalId);
-  }, [isStreamingRequested, sessionId, activeRoomCode, ended, completed]);
+    const handleWebRTCAnswer = async (data) => {
+      const pc = peerConnectionRef.current;
+      if (!pc || !data?.answer) return;
+
+      try {
+        await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+        // Flush any queued ICE candidates that arrived before remote answer
+        while (pendingCandidatesRef.current.length > 0) {
+          const candidate = pendingCandidatesRef.current.shift();
+          try {
+            await pc.addIceCandidate(new RTCIceCandidate(candidate));
+          } catch (iceErr) {
+            console.warn("[WebRTC Student] Error applying queued candidate:", iceErr);
+          }
+        }
+      } catch (err) {
+        console.error("[WebRTC Student] Error setting remote description:", err);
+      }
+    };
+
+    const handleWebRTCIce = async (data) => {
+      const pc = peerConnectionRef.current;
+      if (!pc || !data?.candidate) return;
+
+      try {
+        if (pc.remoteDescription && pc.remoteDescription.type) {
+          await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+        } else {
+          pendingCandidatesRef.current.push(data.candidate);
+        }
+      } catch (err) {
+        console.warn("[WebRTC Student] Failed to add ICE candidate:", err);
+      }
+    };
+
+    const handleWebRTCClose = () => {
+      console.log("[WebRTC Student] Supervisor closed WebRTC live feed");
+      if (peerConnectionRef.current) {
+        peerConnectionRef.current.close();
+        peerConnectionRef.current = null;
+      }
+      pendingCandidatesRef.current = [];
+      setIsSupervisorWatching(false);
+    };
+
+    socket.on(SOCKET_EVENTS.WEBRTC_INIT, handleWebRTCInit);
+    socket.on(SOCKET_EVENTS.WEBRTC_ANSWER, handleWebRTCAnswer);
+    socket.on(SOCKET_EVENTS.WEBRTC_ICE_CANDIDATE, handleWebRTCIce);
+    socket.on(SOCKET_EVENTS.WEBRTC_CLOSE, handleWebRTCClose);
+
+    return () => {
+      socket.off(SOCKET_EVENTS.WEBRTC_INIT, handleWebRTCInit);
+      socket.off(SOCKET_EVENTS.WEBRTC_ANSWER, handleWebRTCAnswer);
+      socket.off(SOCKET_EVENTS.WEBRTC_ICE_CANDIDATE, handleWebRTCIce);
+      socket.off(SOCKET_EVENTS.WEBRTC_CLOSE, handleWebRTCClose);
+      if (peerConnectionRef.current) {
+        peerConnectionRef.current.close();
+        peerConnectionRef.current = null;
+      }
+      pendingCandidatesRef.current = [];
+      setIsSupervisorWatching(false);
+    };
+  }, [sessionId]);
 
   useEffect(() => {
     if (secondsLeft !== null && secondsLeft <= 0 && !ended && !completed && sessionId) {
@@ -281,7 +363,7 @@ export default function LiveViva({ sessionId, name, rollNo, roomCode }) {
   useEffect(() => {
     let mounted = true;
     if (syllabusId && !currentQuestionAudio && currentQuestionId) {
-      axios.get(`${API_BASE_URL}/api/questions/${syllabusId}`)
+      api.get(ENDPOINTS.QUESTIONS_SYLLABUS(syllabusId))
         .then(res => {
           if (!mounted) return;
           if (res.data && res.data.questions) {
@@ -294,7 +376,7 @@ export default function LiveViva({ sessionId, name, rollNo, roomCode }) {
         .catch(() => {});
     }
     return () => { mounted = false; };
-  }, [syllabusId, currentQuestionAudio, currentQuestionId, API_BASE_URL]);
+  }, [syllabusId, currentQuestionAudio, currentQuestionId]);
 
   useEffect(() => {
     const handleVisibilityChange = async () => {
@@ -346,11 +428,11 @@ export default function LiveViva({ sessionId, name, rollNo, roomCode }) {
 
         mediaRecorderRef.current = mediaRecorder;
         
-        socketRef.current.emit("audio:start");
+        socketRef.current.emit(SOCKET_EVENTS.AUDIO_START);
         
         mediaRecorder.ondataavailable = (event) => {
           if (event.data && event.data.size > 0) {
-            socketRef.current.emit("audio:chunk", event.data);
+            socketRef.current.emit(SOCKET_EVENTS.AUDIO_CHUNK, event.data);
           }
         };
         
@@ -358,7 +440,7 @@ export default function LiveViva({ sessionId, name, rollNo, roomCode }) {
           // Flush final audio buffers before signaling stop
           setTimeout(() => {
             if (socketRef.current) {
-              socketRef.current.emit("audio:stop", { sessionId });
+              socketRef.current.emit(SOCKET_EVENTS.AUDIO_STOP, { sessionId });
             }
           }, 150);
         };
@@ -376,7 +458,7 @@ export default function LiveViva({ sessionId, name, rollNo, roomCode }) {
       current.includes(questionNumber) ? current : [...current, questionNumber]
     ));
     try {
-      const res = await axios.post(`http://localhost:5000/api/viva/session/${sessionId}/action`, {
+      const res = await api.post(ENDPOINTS.VIVA_SESSION_ACTION(sessionId), {
         command: "SKIP"
       });
       const data = res.data.data;
@@ -405,11 +487,11 @@ export default function LiveViva({ sessionId, name, rollNo, roomCode }) {
     if (isSubmitting) return;
     setIsSubmitting(true);
     try {
-      await axios.post(`http://localhost:5000/api/viva/session/${sessionId}/action`, {
+      await api.post(ENDPOINTS.VIVA_SESSION_ACTION(sessionId), {
         command: "SUBMIT_AUDIO",
         transcript: transcript
       });
-      const res = await axios.post(`http://localhost:5000/api/viva/session/${sessionId}/action`, {
+      const res = await api.post(ENDPOINTS.VIVA_SESSION_ACTION(sessionId), {
         command: "NEXT"
       });
 
@@ -440,7 +522,7 @@ export default function LiveViva({ sessionId, name, rollNo, roomCode }) {
 
   const exitSession = async () => {
     try {
-      const res = await axios.post(`http://localhost:5000/api/viva/session/${sessionId}/complete`);
+      const res = await api.post(ENDPOINTS.VIVA_SESSION_COMPLETE(sessionId));
       const data = res.data.data;
       data.tabSwitches = warningCount;
       setFinalResults(data);
@@ -469,7 +551,7 @@ export default function LiveViva({ sessionId, name, rollNo, roomCode }) {
             <h1>{currentQuestionText}</h1>
             {currentQuestionAudio && syllabusId && (
               <div style={{ marginTop: '15px' }}>
-                <audio controls autoPlay src={`http://localhost:5000/api/audio/file/${syllabusId}/${currentQuestionAudio}`} style={{ height: '32px' }} />
+                <audio controls autoPlay src={fileUrl(ENDPOINTS.AUDIO_FILE(syllabusId, currentQuestionAudio))} style={{ height: '32px' }} />
               </div>
             )}
             {transcript && (
@@ -495,7 +577,7 @@ export default function LiveViva({ sessionId, name, rollNo, roomCode }) {
             <div className="webcam-card-header">
               <h2>Live Proctored Feed</h2>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                {isStreamingRequested && (
+                {isSupervisorWatching && (
                   <span style={{ fontSize: '9px', background: '#fee2e2', color: '#dc2626', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold' }}>
                     SUPERVISOR WATCHING
                   </span>

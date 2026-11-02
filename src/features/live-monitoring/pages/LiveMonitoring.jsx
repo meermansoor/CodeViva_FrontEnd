@@ -1,7 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { getSocket } from "../../../services/socket";
-import axios from "axios";
+import { getWebRTCConfig } from "../../../services/webrtcConfig";
+import { api } from "../../../services/api";
+import { ENDPOINTS } from "../../../constants/endpoints";
+import { SOCKET_EVENTS, LIVE_UPDATE_TYPE } from "../../../constants/socketEvents";
 
 import {
   ArrowLeft,
@@ -14,6 +17,10 @@ import {
   X,
   Maximize2,
   Video,
+  Volume2,
+  VolumeX,
+  RefreshCw,
+  AlertCircle,
 } from "lucide-react";
 
 import "../styles/live-monitoring.css";
@@ -31,8 +38,18 @@ export default function LiveMonitoring() {
   
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [sessionEnded, setSessionEnded] = useState(false);
-  const [videoFeeds, setVideoFeeds] = useState({});
   const [enlargedStudent, setEnlargedStudent] = useState(null);
+  const enlargedStudentRef = useRef(null);
+  enlargedStudentRef.current = enlargedStudent;
+
+  const [webrtcStatus, setWebrtcStatus] = useState("idle"); // 'idle' | 'connecting' | 'connected' | 'failed'
+  const [isAudioMuted, setIsAudioMuted] = useState(true);
+
+  const enlargedVideoRef = useRef(null);
+  const peerConnectionRef = useRef(null);
+  const pendingCandidatesRef = useRef([]);
+  const studentSocketIdRef = useRef(null);
+  const connectionTimeoutRef = useRef(null);
 
   /* =======================================================
      FETCH INITIAL DATA
@@ -40,12 +57,9 @@ export default function LiveMonitoring() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const token = localStorage.getItem("teacherToken");
-        if (!token) return;
-
         const [roomsRes, sessionsRes] = await Promise.all([
-          axios.get("http://localhost:5000/api/teacher/exam-rooms", { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: { success: false, data: [] } })),
-          axios.get("http://localhost:5000/api/teacher/sessions", { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: { success: false, data: [] } }))
+          api.get(ENDPOINTS.TEACHER_EXAM_ROOMS).catch(() => ({ data: { success: false, data: [] } })),
+          api.get(ENDPOINTS.TEACHER_SESSIONS).catch(() => ({ data: { success: false, data: [] } }))
         ]);
 
         let loadedRooms = [];
@@ -132,16 +146,6 @@ export default function LiveMonitoring() {
   useEffect(() => {
     const socket = getSocket();
 
-    const handleVideoFrame = (data) => {
-      if (!data?.sessionId) return;
-      if (selectedRoom && data.roomCode && data.roomCode !== selectedRoom.roomCode) return;
-
-      setVideoFeeds(prev => ({
-        ...prev,
-        [data.sessionId]: data.frame
-      }));
-    };
-
     const handleTeacherUpdate = (data) => {
       setRooms(prevRooms => {
         return prevRooms.map(room => {
@@ -156,7 +160,7 @@ export default function LiveMonitoring() {
 
           let newMapped = [...room.mappedStudents];
           
-          if (data.type === 'SESSION_STARTED') {
+          if (data.type === LIVE_UPDATE_TYPE.SESSION_STARTED) {
              const waitIdx = newMapped.findIndex(s => s.rollNo === data.studentInfo?.rollNo && s.status === "Waiting");
              if (waitIdx !== -1) {
                newMapped[waitIdx] = {
@@ -184,7 +188,7 @@ export default function LiveMonitoring() {
                  newMapped.unshift(newCard);
                }
              }
-          } else if (data.type === 'SESSION_UPDATED') {
+          } else if (data.type === LIVE_UPDATE_TYPE.SESSION_UPDATED) {
              const idx = newMapped.findIndex(s => s.id === data.sessionId || s.rollNo === data.studentInfo?.rollNo);
              if (idx !== -1) {
                const curr = data.sessionData?.currentQuestion;
@@ -196,14 +200,14 @@ export default function LiveMonitoring() {
                newMapped[idx].hasFlaggedReview = data.hasFlaggedReview || false;
                newMapped[idx].currentScore = data.currentScore || 0;
              }
-          } else if (data.type === 'SESSION_COMPLETED') {
+          } else if (data.type === LIVE_UPDATE_TYPE.SESSION_COMPLETED) {
              const idx = newMapped.findIndex(s => s.id === data.sessionId || s.rollNo === data.studentInfo?.rollNo);
              if (idx !== -1) {
                newMapped[idx].status = "Completed";
                newMapped[idx].question = "Finished";
                newMapped[idx].remaining = `Score: ${data.totalScore}`;
              }
-          } else if (data.type === 'PROCTOR_ALERT') {
+          } else if (data.type === LIVE_UPDATE_TYPE.PROCTOR_ALERT) {
              const idx = newMapped.findIndex(s => s.id === data.sessionId || s.rollNo === data.studentInfo?.rollNo);
              if (idx !== -1) {
                newMapped[idx].risk = data.cheatingProbability;
@@ -215,14 +219,12 @@ export default function LiveMonitoring() {
       });
     };
 
-    socket.on("teacher_live_update", handleTeacherUpdate);
-    socket.on("teacher:live_update", handleTeacherUpdate);
-    socket.on("teacher:video_frame", handleVideoFrame);
+    socket.on(SOCKET_EVENTS.LEGACY_TEACHER_LIVE_UPDATE, handleTeacherUpdate);
+    socket.on(SOCKET_EVENTS.TEACHER_LIVE_UPDATE, handleTeacherUpdate);
 
     return () => {
-      socket.off("teacher_live_update", handleTeacherUpdate);
-      socket.off("teacher:live_update", handleTeacherUpdate);
-      socket.off("teacher:video_frame", handleVideoFrame);
+      socket.off(SOCKET_EVENTS.LEGACY_TEACHER_LIVE_UPDATE, handleTeacherUpdate);
+      socket.off(SOCKET_EVENTS.TEACHER_LIVE_UPDATE, handleTeacherUpdate);
     };
   }, [selectedRoom]);
 
@@ -231,38 +233,231 @@ export default function LiveMonitoring() {
     if (!selectedRoom?.roomCode) return;
     const socket = getSocket();
     const roomCode = selectedRoom.roomCode;
-    socket.emit("room:join", { roomCode, role: "teacher" });
+    socket.emit(SOCKET_EVENTS.ROOM_JOIN, { roomCode, role: "teacher" });
 
     return () => {
-      if (enlargedStudent?.id) {
-        socket.emit("video:unsubscribe", {
-          sessionId: enlargedStudent.id,
-          roomCode,
+      if (studentSocketIdRef.current) {
+        socket.emit(SOCKET_EVENTS.WEBRTC_CLOSE, {
+          targetSocketId: studentSocketIdRef.current,
         });
       }
-      socket.emit("room:leave", { roomCode });
+      socket.emit(SOCKET_EVENTS.ROOM_LEAVE, { roomCode });
     };
-  }, [selectedRoom?.roomCode, enlargedStudent?.id]);
+  }, [selectedRoom?.roomCode]);
+
+  /* =======================================================
+     WEBRTC P2P SIGNALING LISTENERS (SUPERVISOR LIVE FEED)
+  ======================================================== */
+  useEffect(() => {
+    const socket = getSocket();
+
+    const handleWebRTCOffer = async (data) => {
+      const currentStudent = enlargedStudentRef.current;
+      if (!currentStudent) return;
+      const isSessionMatch = currentStudent.id && String(currentStudent.id) === String(data?.studentSessionId);
+      const isRollMatch = currentStudent.rollNo && data?.rollNo && String(currentStudent.rollNo).toLowerCase() === String(data.rollNo).toLowerCase();
+      if (!isSessionMatch && !isRollMatch) {
+        return;
+      }
+      const studentSocketId = data.studentSocketId;
+      if (!studentSocketId || !data?.offer) return;
+
+      studentSocketIdRef.current = studentSocketId;
+
+      try {
+        if (peerConnectionRef.current) {
+          peerConnectionRef.current.close();
+          peerConnectionRef.current = null;
+        }
+        pendingCandidatesRef.current = [];
+
+        const pc = new RTCPeerConnection(getWebRTCConfig());
+        peerConnectionRef.current = pc;
+
+        pc.ontrack = (event) => {
+          console.log("[WebRTC Teacher] Received remote stream track:", event.track.kind);
+          if (enlargedVideoRef.current && event.streams && event.streams[0]) {
+            enlargedVideoRef.current.srcObject = event.streams[0];
+          }
+        };
+
+        pc.onicecandidate = (event) => {
+          if (event.candidate) {
+            socket.emit("webrtc:ice", {
+              targetSocketId: studentSocketId,
+              candidate: event.candidate,
+            });
+          }
+        };
+
+        const updateStatus = () => {
+          const iceState = pc.iceConnectionState;
+          const connState = pc.connectionState;
+          console.log(`[WebRTC Teacher] ICE: ${iceState}, Conn: ${connState}`);
+          if (connState === "connected" || iceState === "connected" || iceState === "completed") {
+            if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current);
+            setWebrtcStatus("connected");
+          } else if (connState === "failed" || iceState === "failed") {
+            setWebrtcStatus("failed");
+          } else if (connState === "disconnected" || iceState === "disconnected") {
+            setWebrtcStatus("failed");
+          }
+        };
+
+        pc.onconnectionstatechange = updateStatus;
+        pc.oniceconnectionstatechange = updateStatus;
+
+        await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+
+        // Flush queued ICE candidates that arrived before offer was set
+        while (pendingCandidatesRef.current.length > 0) {
+          const cand = pendingCandidatesRef.current.shift();
+          try {
+            await pc.addIceCandidate(new RTCIceCandidate(cand));
+          } catch (e) {
+            console.warn("[WebRTC Teacher] Queued candidate error:", e);
+          }
+        }
+
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+
+        socket.emit(SOCKET_EVENTS.WEBRTC_ANSWER, {
+          studentSocketId,
+          answer,
+        });
+      } catch (err) {
+        console.error("[WebRTC Teacher] Failed handling WebRTC offer:", err);
+        setWebrtcStatus("failed");
+      }
+    };
+
+    const handleWebRTCIce = async (data) => {
+      const pc = peerConnectionRef.current;
+      if (!pc || !data?.candidate) return;
+
+      try {
+        if (pc.remoteDescription && pc.remoteDescription.type) {
+          await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+        } else {
+          pendingCandidatesRef.current.push(data.candidate);
+        }
+      } catch (err) {
+        console.warn("[WebRTC Teacher] Add ICE candidate error:", err);
+      }
+    };
+
+    const handleWebRTCClose = () => {
+      console.log("[WebRTC Teacher] Student closed or disconnected stream");
+      if (peerConnectionRef.current) {
+        peerConnectionRef.current.close();
+        peerConnectionRef.current = null;
+      }
+      if (enlargedVideoRef.current) {
+        enlargedVideoRef.current.srcObject = null;
+      }
+      setWebrtcStatus("failed");
+    };
+
+    socket.on(SOCKET_EVENTS.WEBRTC_OFFER, handleWebRTCOffer);
+    socket.on(SOCKET_EVENTS.WEBRTC_ICE_CANDIDATE, handleWebRTCIce);
+    socket.on(SOCKET_EVENTS.WEBRTC_CLOSE, handleWebRTCClose);
+
+    return () => {
+      socket.off(SOCKET_EVENTS.WEBRTC_OFFER, handleWebRTCOffer);
+      socket.off(SOCKET_EVENTS.WEBRTC_ICE_CANDIDATE, handleWebRTCIce);
+      socket.off(SOCKET_EVENTS.WEBRTC_CLOSE, handleWebRTCClose);
+      if (peerConnectionRef.current) {
+        peerConnectionRef.current.close();
+        peerConnectionRef.current = null;
+      }
+      pendingCandidatesRef.current = [];
+    };
+  }, []);
 
   const handleOpenLiveStream = (student) => {
     if (!student?.id || !selectedRoom?.roomCode) return;
     setEnlargedStudent(student);
+    setWebrtcStatus("connecting");
+    setIsAudioMuted(true);
+
+    if (peerConnectionRef.current) {
+      peerConnectionRef.current.close();
+      peerConnectionRef.current = null;
+    }
+    pendingCandidatesRef.current = [];
+    studentSocketIdRef.current = null;
+
+    if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current);
+    connectionTimeoutRef.current = setTimeout(() => {
+      setWebrtcStatus((prev) => {
+        if (prev === "connecting") {
+          console.warn("[WebRTC Teacher] Stream request timed out after 12s - student client unresponsive");
+          return "failed";
+        }
+        return prev;
+      });
+    }, 12000);
+
     const socket = getSocket();
-    socket.emit("video:subscribe", {
-      sessionId: student.id,
+    socket.emit(SOCKET_EVENTS.WEBRTC_INIT, {
+      targetStudentSessionId: student.id,
+      targetRollNo: student.rollNo,
+      roomCode: selectedRoom.roomCode,
+    });
+  };
+
+  const handleRetryConnection = () => {
+    if (!enlargedStudent?.id || !selectedRoom?.roomCode) return;
+    setWebrtcStatus("connecting");
+
+    if (peerConnectionRef.current) {
+      peerConnectionRef.current.close();
+      peerConnectionRef.current = null;
+    }
+    pendingCandidatesRef.current = [];
+    studentSocketIdRef.current = null;
+
+    if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current);
+    connectionTimeoutRef.current = setTimeout(() => {
+      setWebrtcStatus((prev) => {
+        if (prev === "connecting") {
+          console.warn("[WebRTC Teacher] Stream request timed out after 12s - student client unresponsive");
+          return "failed";
+        }
+        return prev;
+      });
+    }, 12000);
+
+    const socket = getSocket();
+    socket.emit(SOCKET_EVENTS.WEBRTC_INIT, {
+      targetStudentSessionId: enlargedStudent.id,
+      targetRollNo: enlargedStudent.rollNo,
       roomCode: selectedRoom.roomCode,
     });
   };
 
   const handleCloseLiveStream = () => {
-    if (enlargedStudent?.id && selectedRoom?.roomCode) {
-      const socket = getSocket();
-      socket.emit("video:unsubscribe", {
-        sessionId: enlargedStudent.id,
-        roomCode: selectedRoom.roomCode,
+    if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current);
+    const socket = getSocket();
+    if (studentSocketIdRef.current) {
+      socket.emit(SOCKET_EVENTS.WEBRTC_CLOSE, {
+        targetSocketId: studentSocketIdRef.current,
       });
     }
+
+    if (peerConnectionRef.current) {
+      peerConnectionRef.current.close();
+      peerConnectionRef.current = null;
+    }
+    if (enlargedVideoRef.current) {
+      enlargedVideoRef.current.srcObject = null;
+    }
+    studentSocketIdRef.current = null;
+    pendingCandidatesRef.current = [];
+    setWebrtcStatus("idle");
     setEnlargedStudent(null);
+    setIsAudioMuted(true);
   };
 
   /* =======================================================
@@ -302,10 +497,7 @@ export default function LiveMonitoring() {
     if (!confirmed) return;
     
     try {
-      const token = localStorage.getItem("teacherToken");
-      const res = await axios.put(`http://localhost:5000/api/teacher/exam-rooms/${selectedRoom._id}/end`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await api.put(ENDPOINTS.END_EXAM_ROOM(selectedRoom._id), {});
       if (res.data.success) {
         setSessionEnded(true);
       }
@@ -594,21 +786,98 @@ export default function LiveMonitoring() {
               <h3>
                 <Eye size={15} /> {enlargedStudent.name}
                 <span>({enlargedStudent.rollNo})</span>
-                <span className="live-rec-badge active" style={{ position: 'static', marginLeft: '8px' }}>
-                  <span className="rec-dot" /> STREAMING
-                </span>
+                {webrtcStatus === "connected" && (
+                  <span className="live-rec-badge active" style={{ position: 'static', marginLeft: '8px' }}>
+                    <span className="rec-dot" /> LIVE 30 FPS • P2P
+                  </span>
+                )}
+                {webrtcStatus === "connecting" && (
+                  <span className="live-rec-badge standby" style={{ position: 'static', marginLeft: '8px', background: '#fef3c7', color: '#b45309', borderColor: '#fcd34d' }}>
+                    <span className="rec-dot standby" style={{ background: '#f59e0b' }} /> CONNECTING...
+                  </span>
+                )}
+                {webrtcStatus === "failed" && (
+                  <span className="live-rec-badge" style={{ position: 'static', marginLeft: '8px', background: '#fef2f2', color: '#b91c1c', borderColor: '#fca5a5' }}>
+                    <span className="rec-dot" style={{ background: '#ef4444' }} /> CONNECTION FAILED
+                  </span>
+                )}
               </h3>
-              <button className="video-modal-close" onClick={handleCloseLiveStream} type="button">
-                <X size={14} />
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsAudioMuted((prev) => !prev)}
+                  title={isAudioMuted ? "Unmute Student Mic" : "Mute Student Mic"}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '4px 8px',
+                    fontSize: '11px',
+                    fontWeight: '600',
+                    borderRadius: '6px',
+                    border: '1px solid #cbd5e1',
+                    background: isAudioMuted ? '#f8fafc' : '#eff6ff',
+                    color: isAudioMuted ? '#64748b' : '#2563eb',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {isAudioMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+                  {isAudioMuted ? "Muted" : "Live Mic"}
+                </button>
+                <button className="video-modal-close" onClick={handleCloseLiveStream} type="button">
+                  <X size={14} />
+                </button>
+              </div>
             </div>
             <div className="video-modal-feed">
-              {videoFeeds[enlargedStudent.id] ? (
-                <img src={videoFeeds[enlargedStudent.id]} alt="Live Proctor Feed" />
-              ) : (
+              <video
+                ref={enlargedVideoRef}
+                autoPlay
+                playsInline
+                muted={isAudioMuted}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'contain',
+                  transform: 'scaleX(-1)',
+                  display: webrtcStatus === 'connected' ? 'block' : 'none'
+                }}
+              />
+
+              {webrtcStatus === "connecting" && (
                 <div className="video-modal-loading">
                   <div className="feed-spinner" />
-                  <span>Requesting live student stream...</span>
+                  <span>Connecting hardware-accelerated WebRTC stream (30 FPS)...</span>
+                </div>
+              )}
+
+              {webrtcStatus === "failed" && (
+                <div className="video-modal-loading" style={{ color: '#f87171', padding: '20px', textAlign: 'center' }}>
+                  <AlertCircle size={32} />
+                  <span style={{ fontWeight: '600', marginTop: '6px' }}>Student Feed Unreachable</span>
+                  <span style={{ fontSize: '11px', color: '#94a3b8', maxWidth: '340px', lineHeight: '1.4', marginTop: '4px' }}>
+                    The student is not currently active in the live exam (may be on identity verification/environment check steps), their tab was closed, or direct UDP is restricted.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleRetryConnection}
+                    style={{
+                      marginTop: '12px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '6px 14px',
+                      borderRadius: '6px',
+                      background: '#3b82f6',
+                      color: '#ffffff',
+                      border: 'none',
+                      fontWeight: '600',
+                      fontSize: '12px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <RefreshCw size={12} /> Retry Connection
+                  </button>
                 </div>
               )}
             </div>
@@ -616,11 +885,18 @@ export default function LiveMonitoring() {
               <div>
                 <strong>Status:</strong> {enlargedStudent.status} • <strong>Progress:</strong> {enlargedStudent.question}
               </div>
-              <div>
-                <strong>Cheating Threat:</strong>{" "}
-                <span style={{ color: enlargedStudent.risk >= 40 ? '#ef4444' : '#10b981', fontWeight: 'bold' }}>
-                  {enlargedStudent.risk}%
-                </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                {webrtcStatus === "connected" && (
+                  <span style={{ color: '#10b981', fontWeight: 'bold' }}>
+                    • Sub-150ms P2P
+                  </span>
+                )}
+                <div>
+                  <strong>Cheating Threat:</strong>{" "}
+                  <span style={{ color: enlargedStudent.risk >= 40 ? '#ef4444' : '#10b981', fontWeight: 'bold' }}>
+                    {enlargedStudent.risk}%
+                  </span>
+                </div>
               </div>
             </div>
           </div>

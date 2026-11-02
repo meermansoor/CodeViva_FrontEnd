@@ -55,12 +55,12 @@ export function useObjectProctoring(videoRef, options = {}) {
         setDetectorError(null);
 
         const fileset = await FilesetResolver.forVisionTasks(
-          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm" // literal-ok
         );
 
         if (!isMounted) return;
 
-        const modelUrl = "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite";
+        const modelUrl = "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite"; // literal-ok
 
         // Attempt GPU first, fallback to CPU
         try {

@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "lint:literals": "node scripts/check-literals.mjs",
+    "prebuild": "node scripts/check-literals.mjs",
     "build": "vite build",
     "preview": "vite preview"
   },

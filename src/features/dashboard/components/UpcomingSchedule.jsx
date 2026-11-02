@@ -1,6 +1,7 @@
 import { CalendarDays, CheckCircle2, PlayCircle } from "lucide-react";
 import { useEffect, useState } from "react";
-import axios from "axios";
+import { api } from "../../../services/api";
+import { ENDPOINTS } from "../../../constants/endpoints";
 
 export default function UpcomingSchedule() {
   const [examRooms, setExamRooms] = useState([]);
@@ -8,12 +9,7 @@ export default function UpcomingSchedule() {
   useEffect(() => {
     const fetchRooms = async () => {
       try {
-        const token = localStorage.getItem("teacherToken");
-        if (!token) return;
-
-        const res = await axios.get("http://localhost:5000/api/teacher/exam-rooms", {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const res = await api.get(ENDPOINTS.TEACHER_EXAM_ROOMS);
 
         if (res.data.success) {
           setExamRooms(res.data.data.slice(0, 5)); // show top 5 recent

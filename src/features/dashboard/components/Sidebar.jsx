@@ -17,13 +17,15 @@ const items = [
   { label: "Analytics", to: "/analytics", icon: Settings },
 ];
 import { useEffect, useState } from "react";
+import { storage } from "../../../utils/storage";
+import { STORAGE_KEYS } from "../../../constants/storage";
 
 export default function Sidebar({ onNavigate }) {
   const [teacher, setTeacher] = useState({ name: "Teacher", email: "" });
 
   useEffect(() => {
     try {
-      const stored = localStorage.getItem("teacherInfo");
+      const stored = storage.get(STORAGE_KEYS.TEACHER_INFO);
       if (stored) {
         setTeacher(JSON.parse(stored));
       }

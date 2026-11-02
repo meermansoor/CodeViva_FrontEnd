@@ -4,7 +4,8 @@ import {
   Users,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import axios from "axios";
+import { api } from "../../../services/api";
+import { ENDPOINTS } from "../../../constants/endpoints";
 
 import Sidebar from "../components/Sidebar";
 import Topbar from "../components/Topbar";
@@ -27,13 +28,10 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchDashboard = async () => {
       try {
-        const token = localStorage.getItem("teacherToken");
-        if (!token) return;
-
         const [dashRes, roomsRes, sessionsRes] = await Promise.all([
-          axios.get("http://localhost:5000/api/teacher/dashboard", { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: { success: false, data: {} } })),
-          axios.get("http://localhost:5000/api/teacher/exam-rooms", { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: { success: false, data: [] } })),
-          axios.get("http://localhost:5000/api/teacher/sessions", { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: { success: false, data: [] } }))
+          api.get(ENDPOINTS.TEACHER_DASHBOARD).catch(() => ({ data: { success: false, data: {} } })),
+          api.get(ENDPOINTS.TEACHER_EXAM_ROOMS).catch(() => ({ data: { success: false, data: [] } })),
+          api.get(ENDPOINTS.TEACHER_SESSIONS).catch(() => ({ data: { success: false, data: [] } }))
         ]);
 
         const allRooms = roomsRes.data.success && roomsRes.data.data ? roomsRes.data.data : [];

@@ -5,6 +5,9 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { clearAuthSession } from "../../../utils/authSession";
+import { storage } from "../../../utils/storage";
+import { STORAGE_KEYS } from "../../../constants/storage";
 
 export default function ProfileMenu() {
   const [open, setOpen] = useState(false);
@@ -14,7 +17,7 @@ export default function ProfileMenu() {
 
   useEffect(() => {
     try {
-      const stored = localStorage.getItem("teacherInfo");
+      const stored = storage.get(STORAGE_KEYS.TEACHER_INFO);
       if (stored) {
         setTeacher(JSON.parse(stored));
       }
@@ -51,11 +54,7 @@ export default function ProfileMenu() {
 
   const handleLogout = () => {
     setOpen(false);
-
-    // Remove authentication data if you are using localStorage
-    localStorage.removeItem("teacherToken");
-    localStorage.removeItem("teacherInfo");
-
+    clearAuthSession();
     navigate("/login");
   };
 

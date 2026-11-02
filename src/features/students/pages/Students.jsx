@@ -1,4 +1,5 @@
-import axios from "axios";
+import { api } from "../../../services/api";
+import { ENDPOINTS } from "../../../constants/endpoints";
 import { useEffect, useState } from "react";
 import {
   ArrowLeft,
@@ -22,12 +23,9 @@ export default function Students() {
   useEffect(() => {
     const fetchStudents = async () => {
       try {
-        const token = localStorage.getItem("teacherToken");
-        if (!token) return;
-
         const [roomsRes, sessionsRes] = await Promise.all([
-          axios.get("http://localhost:5000/api/teacher/exam-rooms", { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: { success: false, data: [] } })),
-          axios.get("http://localhost:5000/api/teacher/sessions", { headers: { Authorization: `Bearer ${token}` } }).catch(() => ({ data: { success: false, data: [] } }))
+          api.get(ENDPOINTS.TEACHER_EXAM_ROOMS).catch(() => ({ data: { success: false, data: [] } })),
+          api.get(ENDPOINTS.TEACHER_SESSIONS).catch(() => ({ data: { success: false, data: [] } }))
         ]);
         
         const subjectMap = {};

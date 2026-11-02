@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import axios from "axios";
+import { api } from "../../../services/api";
+import { ENDPOINTS } from "../../../constants/endpoints";
 import {
   AlertCircle,
   BarChart3,
@@ -274,20 +275,10 @@ export default function Analytics() {
       setLoading(true);
       setError(null);
 
-      const token = localStorage.getItem("teacherToken");
-      if (!token) {
-        setError("Teacher authentication required. Please sign in to view analytics.");
-        setLoading(false);
-        return;
-      }
-
-      const res = await axios.get("http://localhost:5000/api/teacher/analytics", {
+      const res = await api.get(ENDPOINTS.TEACHER_ANALYTICS, {
         params: {
           examRoomId: selectedRoomId,
           period: period,
-        },
-        headers: {
-          Authorization: `Bearer ${token}`,
         },
       });
 

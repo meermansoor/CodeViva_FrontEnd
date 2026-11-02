@@ -1,6 +1,11 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import axios from "axios";
+import { api } from "../../../services/api";
+import { ENDPOINTS } from "../../../constants/endpoints";
+import { setAuthSession } from "../../../utils/authSession";
+import { ROLES } from "../../../constants/roles";
+import { storage } from "../../../utils/storage";
+import { STORAGE_KEYS } from "../../../constants/storage";
 import { GraduationCap, UserRound } from "lucide-react";
 import AuthInput from "../components/AuthInput";
 import PasswordInput from "../components/PasswordInput";
@@ -47,10 +52,14 @@ export default function Login() {
 
   const handleTeacherLogin = async () => {
     try {
-      const response = await axios.post("http://localhost:5000/api/auth/login", { email, password });
+      const response = await api.post(
+        ENDPOINTS.AUTH_LOGIN,
+        { email, password },
+        { skipUnauthorizedHandler: true }
+      );
       if (response.data.success) {
-        localStorage.setItem("teacherToken", response.data.token);
-        localStorage.setItem("teacherInfo", JSON.stringify(response.data.teacher));
+        setAuthSession(ROLES.TEACHER, response.data.token);
+        storage.set(STORAGE_KEYS.TEACHER_INFO, JSON.stringify(response.data.teacher));
         navigate("/dashboard");
       }
     } catch (err) {
@@ -66,7 +75,10 @@ export default function Login() {
     
     try {
       // Verify room exists and student is enrolled
-      const res = await axios.get(`http://localhost:5000/api/viva/room/${studentAccess.joinCode}?rollNo=${encodeURIComponent(studentAccess.rollNumber)}`);
+      const res = await api.get(ENDPOINTS.VIVA_ROOM(studentAccess.joinCode), {
+        params: { rollNo: studentAccess.rollNumber },
+        skipUnauthorizedHandler: true,
+      });
       const studentName = res.data.studentName || "Student";
       navigate(`/student-portal?roomCode=${studentAccess.joinCode}&rollNo=${studentAccess.rollNumber}&name=${encodeURIComponent(studentName)}`);
     } catch (err) {
